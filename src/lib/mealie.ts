@@ -255,6 +255,30 @@ export function createFromUrl(token: string, url: string) {
   });
 }
 
+/** Save a whole recipe. Renaming changes the slug, so use the returned recipe's slug. */
+export function updateRecipe(token: string, slug: string, recipe: Recipe) {
+  return json<Recipe>(`/api/recipes/${encodeURIComponent(slug)}`, token, {
+    method: "PUT",
+    ...jsonBody(recipe),
+  });
+}
+
+/** Permanently delete a recipe (and its photos). */
+export async function deleteRecipe(token: string, slug: string) {
+  await mealieFetch(`/api/recipes/${encodeURIComponent(slug)}`, token, { method: "DELETE" });
+}
+
+/**
+ * Who may change a recipe. The app enforces this itself; Mealie on its own
+ * lets anyone in the household edit any recipe.
+ *   - admins: edit and delete any recipe
+ *   - everyone else: edit recipes they added
+ */
+export function recipeAccess(self: MealieUser, recipe: Pick<RecipeSummary, "userId">) {
+  const admin = Boolean(self.admin);
+  return { canEdit: admin || recipe.userId === self.id, canDelete: admin };
+}
+
 export type ManualRecipeInput = {
   name: string;
   description?: string;

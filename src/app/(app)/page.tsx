@@ -27,7 +27,16 @@ function one(v: string | string[] | undefined) {
 }
 
 async function Welcome({ searchParams }: { searchParams: SP }) {
-  if (!(await searchParams).welcome) return null;
+  const sp = await searchParams;
+  const deleted = one(sp.deleted);
+  if (deleted) {
+    return (
+      <p className="mb-5 rounded-xl bg-accent-soft px-4 py-3 text-sm">
+        Deleted &ldquo;{deleted}&rdquo;.
+      </p>
+    );
+  }
+  if (!sp.welcome) return null;
   return (
     <div className="mb-5 rounded-xl bg-accent-soft px-4 py-3">
       <p className="font-serif text-lg font-bold">Welcome to the family cookbook!</p>

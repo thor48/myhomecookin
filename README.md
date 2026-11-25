@@ -25,6 +25,13 @@ Phone ──https──▶ Cloudflare Tunnel ──▶ this app (Next.js, :3000)
     section (tap to enlarge), and the first is the recipe's picture until
     someone adds a photo of the dish. Needs `ANTHROPIC_API_KEY` (see below).
   - **Type it:** for family recipes.
+- **Editing and deleting:** an ✏️ Edit button on recipes you're allowed to
+  change. Family members can edit recipes they added; admins can edit and
+  delete any recipe (delete asks for a second tap). The app checks this on the
+  server, since Mealie on its own lets any household member edit anything.
+  Ingredient and step lines you don't change keep Mealie's original data.
+- **Readable amounts:** decimals Mealie stores for imported recipes
+  ("2.3333332538605 cups") show as kitchen fractions ("2⅓ cups").
 - **Recipe photos:** any recipe page has "Photo of the dish" (replaces the
   main picture) and "Add a card photo" buttons. Card photos are stored as
   Mealie recipe assets and served through `/asset/[id]/[file]`. Mealie serves

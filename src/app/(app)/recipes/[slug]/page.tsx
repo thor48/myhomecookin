@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache, Suspense } from "react";
-import { cardAssets, describeYield, getRecipe, MealieError, type Recipe } from "@/lib/mealie";
-import { withMealie } from "@/lib/session";
+import { cardAssets, describeYield, getRecipe, MealieError, recipeAccess, type Recipe } from "@/lib/mealie";
+import { currentUser, withMealie } from "@/lib/session";
 import { SourceCredit } from "@/components/source-credit";
-import { sourceCredit } from "@/lib/site";
+import { niceAmount, sourceCredit } from "@/lib/site";
 import { AddPhoto } from "./add-photo";
 import { CardPhotos } from "./card-photos";
 import { RecipeBody } from "./recipe-body";
@@ -37,7 +37,9 @@ async function Banner({ searchParams }: { searchParams: Props["searchParams"] })
   const sp = await searchParams;
   const text = sp.duplicate
     ? "This recipe is already in the cookbook, so here it is."
-    : sp.added
+    : sp.edited
+      ? "Changes saved."
+      : sp.added
       ? "Saved to the cookbook. Give it a quick look to check everything came through."
       : null;
   if (!text) return null;
@@ -59,6 +61,7 @@ async function RecipeView({ params }: { params: Props["params"] }) {
   const recipe = await loadRecipe(slug);
   const credit = sourceCredit(recipe.extras);
   const cards = cardAssets(recipe);
+  const { canEdit } = recipeAccess(await currentUser(), recipe);
 
   const meta = [
     describeYield(recipe) ?? ["", null],
@@ -79,8 +82,13 @@ async function RecipeView({ params }: { params: Props["params"] }) {
       )}
 
       <h1 className="font-serif text-3xl leading-tight font-bold sm:text-4xl">{recipe.name}</h1>
-      <div className="mt-2">
+      <div className="mt-2 flex items-start justify-between gap-3">
         <SourceCredit url={recipe.orgURL} credit={credit} />
+        {canEdit && (
+          <Link href={`/recipes/${recipe.slug}/edit`} className="btn-quiet shrink-0 px-3 py-1.5">
+            ✏️ Edit
+          </Link>
+        )}
       </div>
       {recipe.description && <p className="mt-4 text-lg leading-relaxed">{recipe.description}</p>}
 
@@ -98,7 +106,7 @@ async function RecipeView({ params }: { params: Props["params"] }) {
       <RecipeBody
         ingredients={recipe.recipeIngredient.map((i) => ({
           title: i.title || null,
-          text: (i.display || i.note || i.originalText || "").trim(),
+          text: niceAmount((i.display || i.note || i.originalText || "").trim()),
         }))}
         steps={recipe.recipeInstructions.map((s) => ({ title: s.title || null, text: s.text }))}
       />

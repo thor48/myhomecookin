@@ -1,8 +1,9 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
-import { MealieAuthError } from "./mealie";
+import { getSelf, MealieAuthError } from "./mealie";
 
 export const SESSION_COOKIE = "mealie_token";
 
@@ -27,3 +28,6 @@ export async function withMealie<T>(fn: (token: string) => Promise<T>): Promise<
     throw e;
   }
 }
+
+/** The signed-in user, fetched once per request. */
+export const currentUser = cache(() => withMealie((t) => getSelf(t)));

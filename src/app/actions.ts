@@ -17,13 +17,20 @@ import {
   MealieAuthError,
   cardAssets,
   createInvite,
+  deleteRecipe,
   getRecipe,
   getSelf,
   MealieError,
+  recipeAccess,
   registerWithInvite,
   setRecipeImage,
+  updateRecipe,
   uploadCardPhoto,
+  type Ingredient,
+  type Instruction,
+  type Recipe,
 } from "@/lib/mealie";
+import { editableText, ingredientText } from "@/lib/recipe-edit";
 import {
   isSupportedImage,
   MAX_PHOTO_BYTES,
@@ -131,7 +138,9 @@ export async function importFromUrlAction(
 function lines(value: FormDataEntryValue | null) {
   return String(value ?? "")
     .split(/\r?\n/)
-    .map((l) => l.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, "").trim())
+    // Strip list markers ("- ", "• ", "1. ", "2) "), but never part of a number:
+    // "0.25 tsp salt" and "1.5 cups" must stay as they are.
+    .map((l) => l.replace(/^\s*(?:[-*•]\s*|\d+[.)]\s+)/, "").trim())
     .filter(Boolean);
 }
 
@@ -425,4 +434,98 @@ export async function approveRequestAction(name: string): Promise<ApproveResult>
   const who = String(name).trim().slice(0, 80) || "Someone";
   after(() => notifyRequestApproved({ name: who, approvedBy, siteOrigin: origin }));
   return { url };
+}
+
+// ---------------------------------------------------------------------------
+// Editing and deleting recipes
+
+/** Keep the original object for any line that didn't change, so structured data survives. */
+function keepUnchanged<T>(lines: string[], originals: T[], textOf: (o: T) => string, fresh: (line: string) => T) {
+  const unused = originals.map((o) => ({ o, text: textOf(o) }));
+  return lines.map((line) => {
+    const i = unused.findIndex((u) => u.text === line);
+    if (i === -1) return fresh(line);
+    return unused.splice(i, 1)[0].o;
+  });
+}
+
+export type EditState = { error?: string } | undefined;
+
+export async function updateRecipeAction(_prev: EditState, formData: FormData): Promise<EditState> {
+  const slug = String(formData.get("slug") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const ingredients = lines(formData.get("ingredients"));
+  const steps = lines(formData.get("steps"));
+  const source = String(formData.get("source") ?? "").trim();
+  if (!name) return { error: "Give the recipe a name." };
+  if (ingredients.length === 0) return { error: "Add at least one ingredient." };
+  if (steps.length === 0) return { error: "Add at least one step." };
+  if (source && !/^https?:\/\//.test(source)) {
+    return { error: "The source link should start with http:// or https://" };
+  }
+
+  const token = await requireToken();
+  let newSlug: string;
+  try {
+    const [recipe, self] = await Promise.all([getRecipe(token, slug), getSelf(token)]);
+    if (!recipeAccess(self, recipe).canEdit) {
+      return { error: "You can only edit recipes you added." };
+    }
+    const before = editableText(recipe);
+    const field = (k: string) => String(formData.get(k) ?? "").trim();
+    const yieldText = field("yield");
+    const notes = field("notes");
+    const credit = field("credit").slice(0, 200);
+
+    const updated: Recipe = {
+      ...recipe,
+      name,
+      description: field("description") || null,
+      totalTime: field("time") || null,
+      orgURL: source || null,
+      extras: { ...(recipe.extras ?? {}), source_credit: credit },
+      recipeIngredient: keepUnchanged<Ingredient>(
+        ingredients,
+        recipe.recipeIngredient,
+        ingredientText,
+        (line) => ({ note: line, display: line, originalText: line, quantity: null, referenceId: crypto.randomUUID() }),
+      ),
+      recipeInstructions: keepUnchanged<Instruction>(
+        steps,
+        recipe.recipeInstructions,
+        (i) => i.text.trim(),
+        (text) => ({ id: crypto.randomUUID(), title: "", text, ingredientReferences: [] }) as Instruction,
+      ),
+    };
+    // Only touch Mealie's split yield fields if the text was changed.
+    if (yieldText !== before.yield) {
+      updated.recipeYield = yieldText || null;
+      updated.recipeYieldQuantity = 0;
+      updated.recipeServings = 0;
+    }
+    if (notes !== before.notes) {
+      updated.notes = notes ? [{ title: "", text: notes }] : [];
+    }
+
+    newSlug = (await updateRecipe(token, slug, updated)).slug;
+  } catch (e) {
+    if (e instanceof MealieAuthError) redirect("/logout?expired=1");
+    return { error: message(e) };
+  }
+  redirect(`/recipes/${newSlug}?edited=1`);
+}
+
+export async function deleteRecipeAction(slug: string): Promise<{ error: string }> {
+  const token = await requireToken();
+  let name: string;
+  try {
+    const [recipe, self] = await Promise.all([getRecipe(token, slug), getSelf(token)]);
+    if (!recipeAccess(self, recipe).canDelete) return { error: "Only an admin can delete recipes." };
+    name = recipe.name;
+    await deleteRecipe(token, slug);
+  } catch (e) {
+    if (e instanceof MealieAuthError) redirect("/logout?expired=1");
+    return { error: message(e) };
+  }
+  redirect(`/?deleted=${encodeURIComponent(name.slice(0, 80))}`);
 }
