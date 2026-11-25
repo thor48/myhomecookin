@@ -97,6 +97,19 @@ Anthropic to be read.
 `docker-compose.yml` starts both containers together, for trying the whole
 stack on one machine.
 
+## Discord alerts
+
+Set `DISCORD_WEBHOOK_RECIPES` on the container to a Discord channel webhook
+(Edit Channel → Integrations → Webhooks → Copy Webhook URL). Each recipe added
+in the app posts a card to that channel: the recipe name (linking to it), who
+added it, how (website, photo, typed) and where it's from. Re-importing an
+existing link doesn't post. Recipes added directly in Mealie's own UI don't
+post. Alerts are sent after the page responds, so a slow or down Discord never
+delays or breaks saving.
+
+Webhook URLs are secrets: keep them in Unraid's container settings (masked)
+and `.env.local`, never in the repo.
+
 ## Inviting family
 
 1. Signed in as an admin (or anyone you've given **Can invite** in Mealie),

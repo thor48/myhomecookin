@@ -2,6 +2,8 @@
 
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { notifyNewRecipe } from "@/lib/discord";
 import {
   createFromUrl,
   createManual,
@@ -100,6 +102,22 @@ export async function importFromUrlAction(
     }
     throw e; // includes the redirect() above
   }
+  const origin = await siteOrigin();
+  after(async () => {
+    try {
+      const [recipe, self] = await Promise.all([getRecipe(token, slug), getSelf(token)]);
+      await notifyNewRecipe({
+        name: recipe.name,
+        slug,
+        addedBy: self.fullName || self.username,
+        method: "website",
+        siteOrigin: origin,
+        sourceUrl: recipe.orgURL ?? url.href,
+      });
+    } catch (e) {
+      console.error("New-recipe alert skipped:", e instanceof Error ? e.message : e);
+    }
+  });
   redirect(`/recipes/${slug}?added=1`);
 }
 
@@ -164,6 +182,23 @@ export async function createManualAction(
       console.error("Saving recipe card photos failed:", e);
     }
   }
+  const origin = await siteOrigin();
+  after(async () => {
+    try {
+      const self = await getSelf(token);
+      await notifyNewRecipe({
+        name,
+        slug,
+        addedBy: self.fullName || self.username,
+        method: photos.length > 0 ? "photo" : "typed",
+        siteOrigin: origin,
+        sourceUrl: source || null,
+        credit: credit || null,
+      });
+    } catch (e) {
+      console.error("New-recipe alert skipped:", e instanceof Error ? e.message : e);
+    }
+  });
   redirect(`/recipes/${slug}?added=1`);
 }
 
