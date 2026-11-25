@@ -36,11 +36,11 @@ export default function LoginPage({ searchParams }: PageProps<"/login">) {
 type SP = PageProps<"/login">["searchParams"];
 
 async function LoginNotice({ searchParams }: { searchParams: SP }) {
-  const { expired } = await searchParams;
-  if (!expired) return null;
+  const { expired, reset } = await searchParams;
+  if (!expired && !reset) return null;
   return (
     <p className="mb-4 rounded-xl bg-accent-soft px-4 py-3 text-sm">
-      You were signed out. Please sign in again.
+      {reset ? "Your password is changed. Sign in with your new one." : "You were signed out. Please sign in again."}
     </p>
   );
 }

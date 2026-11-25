@@ -170,6 +170,79 @@ export function getSelf(token: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Admin: everyone's accounts, password resets
+// ---------------------------------------------------------------------------
+
+/** Every account, oldest first. Admins only. */
+export async function listAllUsers(token: string) {
+  const params = new URLSearchParams({ perPage: "-1", orderBy: "createdAt", orderDirection: "asc" });
+  return (await json<Paginated<MealieUser>>(`/api/admin/users?${params}`, token)).items;
+}
+
+export function getUser(token: string, userId: string) {
+  return json<MealieUser>(`/api/admin/users/${encodeURIComponent(userId)}`, token);
+}
+
+/** How many recipes a user has added. */
+export async function countRecipesAddedBy(token: string, userId: string) {
+  return (await listRecipes(token, { perPage: 1, queryFilter: `userId = ${quoted(userId)}` })).total;
+}
+
+const DAY = 24 * 60 * 60 * 1000;
+const joinDays = new Map<string, string>(); // never changes, so remember it
+
+/**
+ * The day (UTC, "YYYY-MM-DD") a user's account was made, or null if unknown.
+ * Mealie doesn't send this, but admins can filter accounts by it, so we
+ * narrow it down a day at a time (about a dozen small requests, once per user).
+ */
+export async function joinedOn(token: string, userId: string): Promise<string | null> {
+  const known = joinDays.get(userId);
+  if (known) return known;
+  const before = async (day: number) => {
+    const params = new URLSearchParams({
+      perPage: "1",
+      queryFilter: `id = ${quoted(userId)} AND createdAt < "${new Date(day * DAY).toISOString().slice(0, 19)}"`,
+    });
+    return (await json<Paginated<MealieUser>>(`/api/admin/users?${params}`, token)).total > 0;
+  };
+  try {
+    // Smallest day `hi` such that the account existed before it began.
+    let lo = Math.floor(Date.UTC(2019, 0, 1) / DAY);
+    let hi = Math.floor(Date.now() / DAY) + 1;
+    if (!(await before(hi))) return null;
+    if (await before(lo)) hi = lo;
+    while (hi - lo > 1) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (await before(mid)) hi = mid;
+      else lo = mid;
+    }
+    const day = new Date((hi - 1) * DAY).toISOString().slice(0, 10);
+    joinDays.set(userId, day);
+    return day;
+  } catch (e) {
+    if (e instanceof MealieAuthError) throw e;
+    return null;
+  }
+}
+
+/** A one-time token to set a new password. Mealie keeps it valid for an hour. Admins only. */
+export async function createPasswordResetToken(token: string, email: string) {
+  return (await json<{ token: string }>("/api/admin/users/password-reset-token", token, {
+    method: "POST",
+    ...jsonBody({ email }),
+  })).token;
+}
+
+/** Set a new password with a reset token. Throws MealieError 400 if the token is used up or expired. */
+export async function resetPassword(resetToken: string, email: string, password: string) {
+  await mealieFetch("/api/users/reset-password", null, {
+    method: "POST",
+    ...jsonBody({ token: resetToken, email, password, passwordConfirm: password }),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Invites
 // ---------------------------------------------------------------------------
 

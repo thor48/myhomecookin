@@ -20,6 +20,9 @@ import {
   cardAssets,
   dishAssets,
   createInvite,
+  createPasswordResetToken,
+  getUser,
+  resetPassword,
   deleteRecipe,
   getRecipe,
   getSelf,
@@ -474,6 +477,55 @@ export async function createInviteAction(uses: number): Promise<InviteResult> {
     if (e instanceof MealieAuthError) redirect("/logout?expired=1");
     return { error: message(e) };
   }
+}
+
+export type ResetLinkResult = { error: string } | { url: string };
+
+/** Admin makes a one-time link for someone to set a new password (good for an hour). */
+export async function passwordResetLinkAction(userId: string): Promise<ResetLinkResult> {
+  const token = await requireToken();
+  try {
+    const self = await getSelf(token);
+    if (!self.admin) return { error: "Only an admin can make password reset links." };
+    const user = await getUser(token, String(userId));
+    const reset = await createPasswordResetToken(token, user.email);
+    return { url: `${await siteOrigin()}/reset-password?token=${encodeURIComponent(reset)}` };
+  } catch (e) {
+    if (e instanceof MealieAuthError) redirect("/logout?expired=1");
+    return { error: message(e) };
+  }
+}
+
+export type ResetState = { error?: string; email?: string } | undefined;
+
+/** Set a new password from a reset link, then sign the person in. */
+export async function resetPasswordAction(_prev: ResetState, formData: FormData): Promise<ResetState> {
+  const resetToken = String(formData.get("token") ?? "");
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const keep = { email };
+
+  if (!resetToken) return { error: "This reset link is incomplete. Ask for a new one.", ...keep };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Enter your email address.", ...keep };
+  if (password.length < 8) return { error: "Use a password of at least 8 characters.", ...keep };
+
+  try {
+    await resetPassword(resetToken, email, password);
+  } catch (e) {
+    if (e instanceof MealieError && e.status === 400) {
+      return { error: "This link has expired or was already used. Ask for a new one.", ...keep };
+    }
+    return { error: message(e), ...keep };
+  }
+  let token: string;
+  try {
+    token = await login(email, password);
+  } catch {
+    // Password is changed; they probably typed a different email than they sign in with.
+    redirect("/login?reset=1");
+  }
+  await startSession(token);
+  redirect("/");
 }
 
 export type JoinState = { error?: string; name?: string; email?: string } | undefined;
