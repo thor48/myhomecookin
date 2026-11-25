@@ -64,6 +64,7 @@ import {
   readRecipeFromPhotos,
   type RecipeDraft,
 } from "@/lib/photo-import";
+import { photoQuota, PHOTO_READS_PER_DAY, takePhotoRead, type PhotoQuota } from "@/lib/photo-quota";
 import { requireToken, SESSION_COOKIE } from "@/lib/session";
 
 export type FormState = { error?: string; username?: string } | undefined;
@@ -263,11 +264,16 @@ export async function createManualAction(
 
 // ---------------------------------------------------------------------------
 
-export type PhotoReadResult = { error: string } | { draft: RecipeDraft };
+export type PhotoReadResult =
+  | { error: string; quota?: PhotoQuota }
+  | { draft: RecipeDraft; quota: PhotoQuota };
 
-/** Read a recipe from uploaded photos. Returns a draft to review; saves nothing. */
+/**
+ * Read a recipe from uploaded photos. Returns a draft to review; saves nothing.
+ * Each person gets PHOTO_READS_PER_DAY successful reads in any 24 hours.
+ */
 export async function readPhotosAction(formData: FormData): Promise<PhotoReadResult> {
-  await requireToken(); // signed-in family only: every call costs money
+  const token = await requireToken(); // signed-in family only: every call costs money
 
   const photos = formData.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
   if (photos.length === 0) return { error: "Add a photo of the recipe first." };
@@ -277,17 +283,35 @@ export async function readPhotosAction(formData: FormData): Promise<PhotoReadRes
     if (p.size > MAX_PHOTO_BYTES) return { error: "One of those photos is too large." };
   }
 
+  let userId: string;
+  try {
+    userId = (await getSelf(token)).id;
+  } catch (e) {
+    if (e instanceof MealieAuthError) redirect("/logout?expired=1");
+    return { error: message(e) };
+  }
+  const hold = await takePhotoRead(userId);
+  if (!hold) {
+    return {
+      error: `You've used your ${PHOTO_READS_PER_DAY} photo reads for today.`,
+      quota: await photoQuota(userId),
+    };
+  }
+
   try {
     const draft = await readRecipeFromPhotos(
       await Promise.all(
         photos.map(async (p) => ({ data: Buffer.from(await p.arrayBuffer()), mediaType: p.type })),
       ),
     );
-    return { draft };
+    return { draft, quota: await photoQuota(userId) };
   } catch (e) {
-    if (e instanceof PhotoImportError) return { error: e.message };
+    // Only reads that give a recipe count toward the limit.
+    await hold.release();
+    const quota = await photoQuota(userId);
+    if (e instanceof PhotoImportError) return { error: e.message, quota };
     console.error("Photo import failed:", e);
-    return { error: "Something went wrong reading the photos. Please try again." };
+    return { error: "Something went wrong reading the photos. Please try again.", quota };
   }
 }
 

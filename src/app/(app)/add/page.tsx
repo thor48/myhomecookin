@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { photoImportEnabled } from "@/lib/photo-import";
+import { photoQuota } from "@/lib/photo-quota";
+import { currentUser } from "@/lib/session";
 import { AddForms } from "./add-forms";
 
 export const metadata: Metadata = { title: "Add a recipe" };
@@ -27,5 +29,7 @@ async function AddFormsWithShared({ searchParams }: { searchParams: PageProps<"/
   const candidates = [sp.url, sp.text, sp.title].flat().filter(Boolean).join(" ");
   const shared = candidates.match(/https?:\/\/\S+/)?.[0] ?? "";
   // Read at request time, so the key can be set on the container after the build.
-  return <AddForms initialUrl={shared} photoImport={photoImportEnabled()} />;
+  const enabled = photoImportEnabled();
+  const quota = enabled ? await photoQuota((await currentUser()).id) : undefined;
+  return <AddForms initialUrl={shared} photoImport={enabled} photoQuota={quota} />;
 }

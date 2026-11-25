@@ -2,6 +2,8 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import type { RecipeDraft } from "@/lib/photo-import";
+import type { PhotoQuota } from "@/lib/photo-quota";
+import { PHOTO_READS_PER_DAY } from "@/lib/site";
 import { shrinkPhoto } from "@/lib/shrink-photo";
 import { CategoryPicker } from "@/components/category-picker";
 import { keepFormSubmit } from "@/lib/keep-form";
@@ -21,7 +23,15 @@ const TABS: [Tab, string][] = [
   ["manual", "Type it"],
 ];
 
-export function AddForms({ initialUrl, photoImport }: { initialUrl: string; photoImport: boolean }) {
+export function AddForms({
+  initialUrl,
+  photoImport,
+  photoQuota,
+}: {
+  initialUrl: string;
+  photoImport: boolean;
+  photoQuota?: PhotoQuota;
+}) {
   const [tab, setTab] = useState<Tab>("link");
 
   return (
@@ -43,7 +53,7 @@ export function AddForms({ initialUrl, photoImport }: { initialUrl: string; phot
         ))}
       </div>
       {tab === "link" && <LinkForm initialUrl={initialUrl} />}
-      {tab === "photo" && <PhotoImport enabled={photoImport} />}
+      {tab === "photo" && <PhotoImport enabled={photoImport} initialQuota={photoQuota} />}
       {tab === "manual" && <ManualForm />}
     </div>
   );
@@ -96,8 +106,12 @@ const MAX_PHOTOS = 4;
 
 type Photo = { file: File; preview: string };
 
-function PhotoImport({ enabled }: { enabled: boolean }) {
+function PhotoImport({ enabled, initialQuota }: { enabled: boolean; initialQuota?: PhotoQuota }) {
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [quota, setQuota] = useState(initialQuota);
+  const waitMs = useCountdown(quota?.left === 0 ? quota.nextAt : null);
+  // Out of reads until the oldest one is 24 hours old.
+  const locked = quota?.left === 0 && waitMs > 0;
   const [error, setError] = useState<string>();
   const [draft, setDraft] = useState<RecipeDraft>();
   const [preparing, setPreparing] = useState(false);
@@ -189,6 +203,7 @@ function PhotoImport({ enabled }: { enabled: boolean }) {
     photos.forEach((p) => form.append("photos", p.file));
     startReading(async () => {
       const result = await callSafely(() => readPhotosAction(form));
+      if ("quota" in result && result.quota) setQuota(result.quota);
       if ("error" in result) setError(result.error);
       else setDraft(result.draft);
     });
@@ -196,6 +211,20 @@ function PhotoImport({ enabled }: { enabled: boolean }) {
 
   return (
     <div className="space-y-4">
+      {locked && (
+        <div role="status" className="rounded-xl bg-accent-soft px-4 py-3 text-sm">
+          <p className="font-medium">You&apos;ve used today&apos;s {PHOTO_READS_PER_DAY} photo reads.</p>
+          <p className="mt-0.5">
+            Photo reading opens again in <span className="font-bold tabular-nums">{formatWait(waitMs)}</span>.
+            You can still add a recipe from a website or type it in.
+          </p>
+        </div>
+      )}
+      <fieldset
+        disabled={locked}
+        aria-disabled={locked}
+        className={`space-y-4 transition ${locked ? "pointer-events-none opacity-40 grayscale select-none" : ""}`}
+      >
       <p className="text-sm text-muted">
         Snap a recipe card, a cookbook page or a screenshot. Use a few photos if it runs onto the
         back or another page.
@@ -251,8 +280,35 @@ function PhotoImport({ enabled }: { enabled: boolean }) {
       >
         {reading ? "Reading the recipe… (about 30 seconds)" : "Read recipe"}
       </button>
+      {quota && !locked && (
+        <p className="text-center text-xs text-muted">
+          {/* A read frees up when the countdown ends, before the next server check. */}
+          {Math.max(quota.left, 1)} of {PHOTO_READS_PER_DAY} photo reads left today
+        </p>
+      )}
+      </fieldset>
     </div>
   );
+}
+
+/** Milliseconds until `until`, ticking each second; 0 once it passes (or with none). */
+function useCountdown(until: number | null) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!until) return;
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, [until]);
+  return until ? Math.max(0, until - now) : 0;
+}
+
+function formatWait(ms: number) {
+  const s = Math.ceil(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s % 60}s`;
+  return `${s}s`;
 }
 
 // ---------------------------------------------------------------------------
