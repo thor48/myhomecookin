@@ -1,0 +1,32 @@
+# Mealie + this app together. Handy for testing on your Mac, or on any host
+# with Docker Compose. On Unraid you can instead add two containers in the
+# Docker tab — see README.
+services:
+  mealie:
+    image: ghcr.io/mealie-recipes/mealie:v3.31.0 # pin a version; upgrade on purpose
+    restart: unless-stopped
+    environment:
+      ALLOW_SIGNUP: "false"
+      BASE_URL: http://localhost:9925
+      TZ: America/Chicago
+    volumes:
+      - mealie-data:/app/data
+    ports:
+      - "9925:9000" # Mealie's own UI, for admin tasks on your network
+
+  recipes:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_SITE_NAME: Family Recipes
+    restart: unless-stopped
+    environment:
+      MEALIE_URL: http://mealie:9000
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-} # optional: photo import
+    ports:
+      - "3000:3000" # the one you expose to family (e.g. via Cloudflare Tunnel)
+    depends_on:
+      - mealie
+
+volumes:
+  mealie-data:

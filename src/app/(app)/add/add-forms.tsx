@@ -1,0 +1,372 @@
+"use client";
+
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import type { RecipeDraft } from "@/lib/photo-import";
+import { createManualAction, importFromUrlAction, readPhotosAction } from "../../actions";
+
+type Tab = "link" | "photo" | "manual";
+
+const TABS: [Tab, string][] = [
+  ["link", "Website"],
+  ["photo", "Photo"],
+  ["manual", "Type it"],
+];
+
+export function AddForms({ initialUrl, photoImport }: { initialUrl: string; photoImport: boolean }) {
+  const [tab, setTab] = useState<Tab>("link");
+
+  return (
+    <div className="mt-6">
+      <div role="tablist" className="mb-5 grid grid-cols-3 rounded-xl bg-accent-soft p-1">
+        {TABS.map(([id, label]) => (
+          <button
+            key={id}
+            role="tab"
+            type="button"
+            aria-selected={tab === id}
+            onClick={() => setTab(id)}
+            className={`rounded-lg py-2.5 text-sm font-medium transition ${
+              tab === id ? "bg-surface shadow-sm" : "text-muted"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      {tab === "link" && <LinkForm initialUrl={initialUrl} />}
+      {tab === "photo" && <PhotoImport enabled={photoImport} />}
+      {tab === "manual" && <ManualForm />}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+function LinkForm({ initialUrl }: { initialUrl: string }) {
+  const [state, action, pending] = useActionState(importFromUrlAction, undefined);
+
+  return (
+    <form action={action} className="space-y-4">
+      <label className="block">
+        <span className="mb-1.5 block text-sm font-medium">Recipe link</span>
+        <input
+          name="url"
+          type="url"
+          inputMode="url"
+          defaultValue={initialUrl}
+          placeholder="https://…"
+          required
+          autoFocus={!initialUrl}
+          className="field"
+        />
+      </label>
+      <p className="text-sm text-muted">
+        We&apos;ll pull out the ingredients and steps, and credit the website with a link back.
+      </p>
+      <ErrorText error={state?.error} />
+      <button type="submit" disabled={pending} className="btn w-full">
+        {pending ? "Reading the recipe…" : "Import recipe"}
+      </button>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+const MAX_PHOTOS = 4;
+
+type Photo = { file: File; preview: string };
+
+function PhotoImport({ enabled }: { enabled: boolean }) {
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [error, setError] = useState<string>();
+  const [draft, setDraft] = useState<RecipeDraft>();
+  const [preparing, setPreparing] = useState(false);
+  const [reading, startReading] = useTransition();
+  const input = useRef<HTMLInputElement>(null);
+
+  // Free preview URLs when photos are removed or the component goes away.
+  const previews = useRef<string[]>([]);
+  useEffect(() => {
+    previews.current = photos.map((p) => p.preview);
+  }, [photos]);
+  useEffect(() => () => previews.current.forEach((u) => URL.revokeObjectURL(u)), []);
+
+  if (!enabled) {
+    return (
+      <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-muted">
+        Photo import isn&apos;t switched on yet. Whoever runs the cookbook needs to add an AI key
+        to the server.
+      </p>
+    );
+  }
+
+  if (draft) {
+    return (
+      <div>
+        {draft.continues_elsewhere && (
+          <div className="mb-3 rounded-xl border-2 border-accent px-4 py-3 text-sm">
+            <p className="font-medium">This recipe seems to continue on the back.</p>
+            <p className="mt-0.5">
+              Go back, add a photo of the back (or next page), and read it again, or type the
+              rest in below.
+            </p>
+          </div>
+        )}
+        <div className="mb-4 rounded-xl bg-accent-soft px-4 py-3 text-sm">
+          <p className="font-medium">Check it over before saving.</p>
+          <p className="mt-0.5">
+            The photo reader can misread handwriting, so compare it with the card.
+          </p>
+          {draft.unclear.length > 0 && (
+            <p className="mt-2">
+              <span className="font-medium">Hard to read:</span> {draft.unclear.join(", ")}
+            </p>
+          )}
+        </div>
+        <ManualForm draft={draft} photo={photos[0]?.file} />
+        <button
+          type="button"
+          onClick={() => setDraft(undefined)}
+          className="mt-3 w-full py-2 text-sm text-muted underline"
+        >
+          ← Back to the photos
+        </button>
+      </div>
+    );
+  }
+
+  async function addFiles(list: FileList | null) {
+    if (!list?.length) return;
+    setError(undefined);
+    setPreparing(true);
+    try {
+      const room = MAX_PHOTOS - photos.length;
+      const picked = Array.from(list).slice(0, room);
+      const added = await Promise.all(
+        picked.map(async (f) => {
+          const file = await shrinkPhoto(f);
+          return { file, preview: URL.createObjectURL(file) };
+        }),
+      );
+      setPhotos((p) => [...p, ...added]);
+      if (list.length > room) setError(`Only ${MAX_PHOTOS} photos per recipe.`);
+    } catch {
+      setError("Couldn't open that photo. Try a JPEG or PNG.");
+    } finally {
+      setPreparing(false);
+      if (input.current) input.current.value = "";
+    }
+  }
+
+  function remove(i: number) {
+    URL.revokeObjectURL(photos[i].preview);
+    setPhotos((p) => p.filter((_, j) => j !== i));
+  }
+
+  function read() {
+    setError(undefined);
+    const form = new FormData();
+    photos.forEach((p) => form.append("photos", p.file));
+    startReading(async () => {
+      const result = await readPhotosAction(form);
+      if ("error" in result) setError(result.error);
+      else setDraft(result.draft);
+    });
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted">
+        Snap a recipe card, a cookbook page or a screenshot. Use a few photos if it runs onto the
+        back or another page.
+      </p>
+
+      <div className="grid grid-cols-2 gap-3">
+        {photos.map((p, i) => (
+          <div key={p.preview} className="relative overflow-hidden rounded-xl border border-border">
+            {/* eslint-disable-next-line @next/next/no-img-element -- local preview */}
+            <img src={p.preview} alt={`Photo ${i + 1}`} className="aspect-[3/4] w-full bg-accent-soft object-contain" />
+            <button
+              type="button"
+              onClick={() => remove(i)}
+              disabled={reading}
+              aria-label={`Remove photo ${i + 1}`}
+              className="absolute top-2 right-2 grid size-8 place-items-center rounded-full bg-black/60 text-white"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        {photos.length < MAX_PHOTOS && (
+          <label
+            className={`grid aspect-[3/4] cursor-pointer place-items-center rounded-xl border-2 border-dashed border-border bg-surface text-center text-muted ${
+              photos.length === 0 ? "col-span-2 aspect-[4/3]" : ""
+            }`}
+          >
+            <span>
+              <span className="block text-3xl">📷</span>
+              <span className="mt-1 block text-sm font-medium">
+                {preparing ? "Preparing…" : photos.length ? "Add another" : "Take or choose a photo"}
+              </span>
+            </span>
+            <input
+              ref={input}
+              type="file"
+              accept="image/*"
+              multiple
+              disabled={preparing || reading}
+              onChange={(e) => addFiles(e.target.files)}
+              className="sr-only"
+            />
+          </label>
+        )}
+      </div>
+
+      <ErrorText error={error} />
+      <button
+        type="button"
+        onClick={read}
+        disabled={photos.length === 0 || reading || preparing}
+        className="btn w-full"
+      >
+        {reading ? "Reading the recipe… (about 30 seconds)" : "Read recipe"}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Downsize to at most 1568px on the long edge as JPEG. That's as much detail
+ * as Claude uses, keeps uploads quick on mobile data, and lowers the cost.
+ */
+async function shrinkPhoto(file: File, maxEdge = 1568): Promise<File> {
+  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.85));
+  if (!blob) throw new Error("Could not encode photo");
+  return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
+}
+
+// ---------------------------------------------------------------------------
+
+function ManualForm({ draft, photo }: { draft?: RecipeDraft; photo?: File }) {
+  const [state, action, pending] = useActionState(createManualAction, undefined);
+
+  // Attach the original photo so it becomes the recipe's picture.
+  const submit = (formData: FormData) => {
+    if (photo) formData.set("photo", photo);
+    action(formData);
+  };
+
+  return (
+    <form action={submit} className="space-y-4">
+      <Field label="Recipe name">
+        <input
+          name="name"
+          required
+          defaultValue={draft?.name}
+          className="field"
+          placeholder="Grandma's apple cake"
+        />
+      </Field>
+      <Field label="About it" hint="optional">
+        <textarea
+          name="description"
+          rows={2}
+          defaultValue={draft?.description}
+          className="field"
+          placeholder="Who makes it, when you have it, why it's good…"
+        />
+      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Serves" hint="optional">
+          <input name="yield" defaultValue={draft?.servings} className="field" placeholder="8 slices" />
+        </Field>
+        <Field label="Time" hint="optional">
+          <input name="time" defaultValue={draft?.total_time} className="field" placeholder="1 hour" />
+        </Field>
+      </div>
+      <Field label="Ingredients" hint="one per line">
+        <textarea
+          name="ingredients"
+          rows={Math.max(6, (draft?.ingredients.length ?? 0) + 1)}
+          required
+          defaultValue={draft?.ingredients.join("\n")}
+          className="field"
+          placeholder={"3 apples, sliced\n1 cup sugar\n2 eggs"}
+        />
+      </Field>
+      <Field label="Steps" hint="one per line">
+        <textarea
+          name="steps"
+          rows={Math.max(6, (draft?.steps.length ?? 0) * 2)}
+          required
+          defaultValue={draft?.steps.join("\n")}
+          className="field"
+          placeholder={"Heat the oven to 350°F.\nBeat the eggs and sugar…"}
+        />
+      </Field>
+      <Field label="Notes" hint="optional">
+        <textarea
+          name="notes"
+          rows={2}
+          defaultValue={draft?.notes}
+          className="field"
+          placeholder="Tips, swaps, what Grandpa always said about it…"
+        />
+      </Field>
+      <Field label="Whose recipe is it?" hint="optional">
+        <input
+          name="credit"
+          defaultValue={draft?.source_credit}
+          className="field"
+          placeholder="Aunt Mary, or Joy of Cooking p. 212"
+        />
+      </Field>
+      <Field label="Website it came from" hint="optional">
+        <input name="source" type="url" inputMode="url" className="field" placeholder="https://…" />
+      </Field>
+      {photo && (
+        <p className="text-sm text-muted">The first photo will be saved as the recipe&apos;s picture.</p>
+      )}
+      <ErrorText error={state?.error} />
+      <button type="submit" disabled={pending} className="btn w-full">
+        {pending ? "Saving…" : "Save recipe"}
+      </button>
+    </form>
+  );
+}
+
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-sm font-medium">
+        {label} {hint && <span className="font-normal text-muted">({hint})</span>}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function ErrorText({ error }: { error?: string }) {
+  if (!error) return null;
+  return (
+    <p role="alert" className="text-sm text-accent">
+      {error}
+    </p>
+  );
+}

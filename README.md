@@ -1,36 +1,100 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Family Recipes
 
-## Getting Started
+A mobile-friendly front end for a self-hosted [Mealie](https://mealie.io) server.
+Friends and family browse, cook from, and add recipes here. Mealie stays on your
+home network and handles storage, recipe scraping and accounts.
 
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+Phone ──https──▶ Cloudflare Tunnel ──▶ this app (Next.js, :3000) ──▶ Mealie (:9000, private)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## What's here
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Sign in** with your Mealie account. The token is kept in an httpOnly cookie.
+- **Browse and search** every recipe, with photos served through the app (`/img/[id]`).
+- **Recipe page** with an "Adapted from *site*" backlink for imported recipes,
+  ingredients you can tick off, tap-to-finish steps, and **Cook mode**, which
+  enlarges the text and keeps the screen awake.
+- **Add a recipe** three ways:
+  - **Website:** paste a link. Mealie scrapes it and saves the source URL.
+    Links that were already imported open the existing recipe instead of
+    making a duplicate.
+  - **Photo:** snap a recipe card, cookbook page or screenshot (up to 4
+    photos). Claude reads it and fills in the form for the person to check
+    and fix before saving. The first photo becomes the recipe's picture.
+    Needs `ANTHROPIC_API_KEY` (see below).
+  - **Type it:** for family recipes.
+- **Credits:** a website gets an "Adapted from *site*" backlink. A person or
+  book gets "From Aunt Mary" (stored in the recipe's `extras.source_credit`
+  in Mealie).
+- **Installable** as an app (Add to Home Screen). On Android it also shows up
+  in the Share menu, so you can share a recipe page straight into the app.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Path | File |
+|---|---|
+| Mealie API client | `src/lib/mealie.ts` |
+| Session / auth helpers | `src/lib/session.ts`, `src/proxy.ts`, `src/app/actions.ts` |
+| Pages | `src/app/(app)/…`, `src/app/login/` |
+| PWA | `src/app/manifest.ts`, `src/app/icons/`, `src/app/apple-icon.tsx` |
+| Photo import (Claude) | `src/lib/photo-import.ts`, photo tab in `src/app/(app)/add/add-forms.tsx` |
 
-## Learn More
+## Run it locally
 
-To learn more about Next.js, take a look at the following resources:
+You need Node 24+ and a Mealie server. To start a throwaway Mealie with Docker:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+docker run -d --name mealie -p 9925:9000 -e ALLOW_SIGNUP=false ghcr.io/mealie-recipes/mealie:v3.31.0
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Then:
 
-## Deploy on Vercel
+```bash
+cp .env.example .env.local   # set MEALIE_URL=http://localhost:9925
+npm install
+npm run dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Open http://localhost:3000 and sign in with a Mealie account. A new Mealie
+starts with `changeme@example.com` / `MyPassword`; change that right away.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deploy on Unraid
+
+1. **Mealie:** install it from Community Apps. **Pin the version tag** (e.g.
+   `ghcr.io/mealie-recipes/mealie:v3.31.0`, not `latest`), because this app
+   depends on Mealie's API. Upgrade on purpose and test after.
+2. **A shared Docker network**, so the two containers can find each other by name:
+   ```bash
+   docker network create recipes
+   ```
+   Set both containers' *Network Type* to `Custom: recipes`.
+3. **Build this app's image.** On your Mac (Unraid is x86_64):
+   ```bash
+   docker build --platform linux/amd64 --build-arg NEXT_PUBLIC_SITE_NAME="Thorberg Recipes" -t recipes-web .
+   ```
+   Push it to a registry (e.g. GitHub Container Registry), or `docker save` it
+   and `docker load` it on Unraid.
+4. **Add the container** in Unraid's Docker tab → *Add Container*:
+   - Repository: your image
+   - Network: `Custom: recipes`
+   - Port: container `3000` → host port of your choice
+   - Variable `MEALIE_URL` = `http://mealie:9000` (the Mealie container's name)
+5. **Remote access:** point a Cloudflare Tunnel (or Tailscale) at this app's
+   port. Mealie itself doesn't need to be exposed. Keep using its own UI on
+   your LAN for admin work such as inviting users and backups.
+
+### Photo import
+
+Add a variable `ANTHROPIC_API_KEY` to the app's container (get one at
+https://platform.claude.com). Without it, the Photo tab says it isn't switched
+on yet. Photos are shrunk in the browser before upload, then sent to
+Anthropic's API to be read. Each photo uses Claude Opus 5.5 and costs a few
+cents. Only signed-in users can use it. Let family know their photos go to
+Anthropic to be read.
+
+`docker-compose.yml` starts both containers together, for trying the whole
+stack on one machine.
+
+## Inviting family
+
+In Mealie (on your network): **Settings → Users → Invite**. They follow the
+invite link to set a password, then sign in here.
