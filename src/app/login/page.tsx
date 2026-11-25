@@ -9,11 +9,18 @@ export default function LoginPage({ searchParams }: PageProps<"/login">) {
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-6 py-12">
       <div className="mb-8 text-center">
-        <div className="mx-auto mb-4 grid size-14 place-items-center rounded-2xl bg-accent text-2xl text-white">
-          🍲
-        </div>
-        <h1 className="font-serif text-3xl font-semibold">{SITE_NAME}</h1>
-        <p className="mt-2 text-muted">Sign in with your recipe account.</p>
+        <h1>
+          {/* Stacked logo (includes the name). */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- static SVG */}
+          <img
+            src="/brand/logo-primary.svg"
+            alt={SITE_NAME}
+            width={160}
+            height={208}
+            className="mx-auto h-52 w-auto"
+          />
+        </h1>
+        <p className="mt-4 text-muted">Sign in with your recipe account.</p>
       </div>
       <Suspense>
         <LoginNotice searchParams={searchParams} />

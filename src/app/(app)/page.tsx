@@ -51,7 +51,7 @@ async function RecipeGrid({ searchParams }: { searchParams: SP }) {
 
   if (data.items.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-border px-6 py-16 text-center">
+      <div className="rounded-xl border border-dashed border-border px-6 py-16 text-center">
         <p className="font-serif text-xl">
           {q ? `Nothing matches “${q}”.` : "The cookbook is empty."}
         </p>
@@ -105,7 +105,7 @@ function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
   return (
     <Link
       href={`/recipes/${recipe.slug}`}
-      className="group block overflow-hidden rounded-2xl border border-border bg-surface transition active:scale-[0.99]"
+      className="group block overflow-hidden rounded-xl bg-surface shadow-card transition active:scale-[0.99]"
     >
       <div className="aspect-[4/3] bg-accent-soft">
         {recipe.image ? (
@@ -121,7 +121,7 @@ function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
         )}
       </div>
       <div className="flex flex-col gap-0.5 p-3">
-        <h2 className="line-clamp-2 font-medium leading-snug">{recipe.name}</h2>
+        <h2 className="line-clamp-2 font-serif text-[1.05rem] font-bold leading-snug">{recipe.name}</h2>
         <SourceCredit url={recipe.orgURL} compact />
       </div>
     </Link>
@@ -132,7 +132,7 @@ function GridSkeleton() {
   return (
     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-busy>
       {Array.from({ length: 8 }, (_, i) => (
-        <li key={i} className="overflow-hidden rounded-2xl border border-border bg-surface">
+        <li key={i} className="overflow-hidden rounded-xl bg-surface shadow-card">
           <div className="aspect-[4/3] animate-pulse bg-accent-soft" />
           <div className="m-3 h-4 w-3/4 animate-pulse rounded bg-accent-soft" />
         </li>

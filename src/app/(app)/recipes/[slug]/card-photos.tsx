@@ -38,7 +38,7 @@ export function CardPhotos({ cards }: { cards: Card[] }) {
       <dialog
         ref={dialog}
         onClick={(e) => e.target === dialog.current && dialog.current.close()}
-        className="m-auto max-h-[92dvh] w-[min(96vw,56rem)] rounded-2xl bg-surface p-0 text-foreground backdrop:bg-black/80"
+        className="m-auto max-h-[92dvh] w-[min(96vw,56rem)] rounded-xl bg-surface p-0 text-foreground backdrop:bg-black/80"
       >
         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2">
           <span className="text-sm text-muted">

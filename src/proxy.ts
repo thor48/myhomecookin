@@ -15,6 +15,6 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     // Everything except the login/logout pages, Next internals and PWA assets.
-    "/((?!login|logout|_next/static|_next/image|manifest.webmanifest|icons/|icon|apple-icon|favicon.ico).*)",
+    "/((?!login|logout|_next/static|_next/image|manifest.webmanifest|brand/|icons/|icon|apple-icon|favicon.ico).*)",
   ],
 };

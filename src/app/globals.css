@@ -1,25 +1,33 @@
 @import "tailwindcss";
 
+/*
+ * My Home Cookin' brand colors — from MyHomeCookin_StyleGuide_v2.pdf.
+ *
+ * The guide's palette is used as-is for backgrounds, the logo, borders and
+ * decoration. Where a color carries *text*, a slightly deeper shade is used
+ * so it stays readable (WCAG AA 4.5:1) — the guide's Terracotta / Sage /
+ * Coral are too light for text on Cream (2.7–2.9:1).
+ */
 :root {
-  --background: #faf7f2;
-  --surface: #ffffff;
-  --foreground: #2b2118;
-  --muted: #7a6a5c;
-  --border: #e8dfd3;
-  --accent: #b6461b;
-  --accent-soft: #f6e5da;
-}
+  /* Palette (style guide) */
+  --cream: #f8f1e9; /* page background */
+  --terracotta: #c17f59; /* logo, borders, decoration */
+  --deep-brown: #4a3429; /* text */
+  --pot-orange: #c45c26; /* strong accent */
+  --sage: #8a9a7b; /* secondary UI, tags */
+  --soft-coral: #d97b6c; /* favorites, hearts, alerts */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #171310;
-    --surface: #221c17;
-    --foreground: #f2ebe3;
-    --muted: #a8998b;
-    --border: #3a3029;
-    --accent: #ec8a5c;
-    --accent-soft: #3a2519;
-  }
+  /* Roles */
+  --background: var(--cream);
+  --surface: #ffffff; /* cards: "pure white for subtle elevation" */
+  --foreground: var(--deep-brown);
+  --muted: #76604f; /* secondary text, 5.3:1 on cream */
+  --border: #e6d5c6; /* terracotta tint */
+  --accent: #be5924; /* buttons: Pot Orange, a touch deeper so white text is 4.5:1 */
+  --accent-hover: #a54b1d;
+  --accent-soft: #f1e3d7; /* banners, tab track */
+  --link: #946144; /* Terracotta, deepened for text (4.6:1) */
+  --danger: #a05b4f; /* Soft Coral, deepened for text (4.6:1) */
 }
 
 @theme inline {
@@ -29,9 +37,18 @@
   --color-muted: var(--muted);
   --color-border: var(--border);
   --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
   --color-accent-soft: var(--accent-soft);
-  --font-sans: var(--font-sans);
-  --font-serif: var(--font-serif);
+  --color-link: var(--link);
+  --color-danger: var(--danger);
+  --color-terracotta: var(--terracotta);
+  --color-sage: var(--sage);
+  --color-coral: var(--soft-coral);
+  --font-sans: var(--font-lato);
+  --font-serif: var(--font-playfair);
+  --font-script: var(--font-caveat);
+  /* Cards: soft, warm-tinted shadow */
+  --shadow-card: 0 1px 2px rgb(74 52 41 / 0.06), 0 4px 14px rgb(74 52 41 / 0.07);
 }
 
 body {
@@ -42,11 +59,13 @@ body {
 
 /* Shared form controls */
 .field {
-  @apply w-full rounded-xl border border-border bg-surface px-4 py-3 text-base outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/25;
+  @apply w-full rounded-lg border border-border bg-surface px-4 py-3 text-base outline-none transition focus:border-terracotta focus:ring-2 focus:ring-terracotta/30;
 }
+/* Primary: filled, white text, 6–8px corners */
 .btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-5 py-3 text-base font-semibold text-white transition active:scale-[0.98] disabled:opacity-60;
+  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-5 py-3 text-base font-bold text-white transition hover:bg-accent-hover active:scale-[0.98] disabled:opacity-60;
 }
+/* Secondary: transparent with a Terracotta border */
 .btn-quiet {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-medium transition active:scale-[0.98];
+  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-terracotta bg-transparent px-4 py-2.5 text-sm font-bold text-link transition hover:bg-accent-soft active:scale-[0.98];
 }

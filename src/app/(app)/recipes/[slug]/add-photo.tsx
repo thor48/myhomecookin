@@ -52,7 +52,7 @@ export function AddPhoto({ slug }: { slug: string }) {
         <PhotoButton label="🗂️ Add a card photo" disabled={busy} onPick={(f) => upload("card", f)} />
       </div>
       {shown && (
-        <p role="alert" className="mt-2 text-sm text-accent">
+        <p role="alert" className="mt-2 text-sm text-danger">
           {shown}
         </p>
       )}

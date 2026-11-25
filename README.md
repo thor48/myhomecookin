@@ -41,6 +41,8 @@ Phone ──https──▶ Cloudflare Tunnel ──▶ this app (Next.js, :3000)
 | Session / auth helpers | `src/lib/session.ts`, `src/proxy.ts`, `src/app/actions.ts` |
 | Pages | `src/app/(app)/…`, `src/app/login/` |
 | PWA | `src/app/manifest.ts`, `src/app/icons/`, `src/app/apple-icon.tsx` |
+| Brand: colors, fonts | `src/app/globals.css`, `src/app/layout.tsx` (from `MyHomeCookin_Logo-StyleGuide/`) |
+| Brand: logos, app icons | `public/brand/`; regenerate icons with `node scripts/make-icons.mjs` |
 | Photo import (Claude) | `src/lib/photo-import.ts`, photo tab in `src/app/(app)/add/add-forms.tsx` |
 
 ## Run it locally

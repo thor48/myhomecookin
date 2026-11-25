@@ -27,7 +27,7 @@ export function SourceCredit({
     <p className="text-sm text-muted">
       {who && (
         <>
-          From <span className="font-medium text-foreground">{who}</span>
+          From <span className="font-script text-xl leading-none text-foreground">{who}</span>
           {host && " · "}
         </>
       )}
@@ -38,7 +38,7 @@ export function SourceCredit({
             href={url}
             target="_blank"
             rel="noopener"
-            className="font-medium text-accent underline decoration-accent/40 underline-offset-2 hover:decoration-accent"
+            className="font-bold text-link underline decoration-terracotta/50 underline-offset-2 hover:decoration-link"
           >
             {host}
           </a>{" "}

@@ -352,7 +352,7 @@ function Field({
 function ErrorText({ error }: { error?: string }) {
   if (!error) return null;
   return (
-    <p role="alert" className="text-sm text-accent">
+    <p role="alert" className="text-sm text-danger">
       {error}
     </p>
   );

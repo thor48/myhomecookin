@@ -23,7 +23,7 @@ export function RecipeBody({ ingredients, steps }: { ingredients: Item[]; steps:
 
   return (
     <div className={cooking ? "text-lg sm:text-xl" : ""}>
-      <div className="sticky top-[calc(env(safe-area-inset-top)+3.5rem)] z-[5] -mx-4 mt-6 flex items-center gap-3 bg-background/90 px-4 py-2 backdrop-blur">
+      <div className="sticky top-[calc(env(safe-area-inset-top)+4.5rem)] z-[5] -mx-4 mt-6 flex items-center gap-3 bg-background/90 px-4 py-2 backdrop-blur">
         <button
           type="button"
           onClick={() => setCooking((c) => !c)}
@@ -41,7 +41,7 @@ export function RecipeBody({ ingredients, steps }: { ingredients: Item[]; steps:
 
       <section className="mt-4">
         <h2 className="mb-3 font-serif text-2xl font-semibold">Ingredients</h2>
-        <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
+        <ul className="divide-y divide-border rounded-xl bg-surface shadow-card">
           {ingredients.map((ing, i) =>
             ing.title && !ing.text ? (
               <li key={i} className="px-4 pt-4 pb-2 text-sm font-semibold tracking-wide uppercase text-muted">
@@ -83,8 +83,8 @@ export function RecipeBody({ ingredients, steps }: { ingredients: Item[]; steps:
                   type="button"
                   onClick={() => setDoneStep((s) => toggle(s, i))}
                   aria-pressed={done}
-                  className={`flex w-full gap-4 rounded-2xl border p-4 text-left transition ${
-                    done ? "border-border bg-transparent opacity-50" : "border-border bg-surface"
+                  className={`flex w-full gap-4 rounded-xl border p-4 text-left transition ${
+                    done ? "border-border bg-transparent opacity-50" : "border-transparent bg-surface shadow-card"
                   }`}
                 >
                   <span

@@ -33,7 +33,7 @@ export function LoginForm({ next }: { next: string }) {
         />
       </label>
       {state?.error && (
-        <p role="alert" className="text-sm text-accent">
+        <p role="alert" className="text-sm text-danger">
           {state.error}
         </p>
       )}

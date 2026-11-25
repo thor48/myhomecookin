@@ -74,11 +74,11 @@ async function RecipeView({ params }: { params: Props["params"] }) {
         <img
           src={`/img/${recipe.id}?size=original&v=${recipe.image}`}
           alt=""
-          className="-mx-4 mb-5 aspect-[4/3] w-[calc(100%+2rem)] max-w-none object-cover sm:mx-0 sm:w-full sm:rounded-2xl"
+          className="-mx-4 mb-5 aspect-[4/3] w-[calc(100%+2rem)] max-w-none object-cover sm:mx-0 sm:w-full sm:rounded-xl"
         />
       )}
 
-      <h1 className="font-serif text-3xl leading-tight font-semibold sm:text-4xl">{recipe.name}</h1>
+      <h1 className="font-serif text-3xl leading-tight font-bold sm:text-4xl">{recipe.name}</h1>
       <div className="mt-2">
         <SourceCredit url={recipe.orgURL} credit={credit} />
       </div>
@@ -143,7 +143,7 @@ async function RecipeView({ params }: { params: Props["params"] }) {
 function RecipeSkeleton() {
   return (
     <div aria-busy className="space-y-4">
-      <div className="aspect-[4/3] animate-pulse rounded-2xl bg-accent-soft" />
+      <div className="aspect-[4/3] animate-pulse rounded-xl bg-accent-soft" />
       <div className="h-9 w-3/4 animate-pulse rounded bg-accent-soft" />
       <div className="h-4 w-1/3 animate-pulse rounded bg-accent-soft" />
     </div>
