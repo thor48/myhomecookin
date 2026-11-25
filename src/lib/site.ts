@@ -1,4 +1,7 @@
-export const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "Family Recipes";
+export const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "My Home Cookin'";
+
+/** Label under the home-screen icon; phones cut off anything past ~12 characters. */
+export const SITE_SHORT_NAME = process.env.NEXT_PUBLIC_SITE_SHORT_NAME ?? "Home Cookin'";
 
 /** "https://www.seriouseats.com/x" → "seriouseats.com" */
 export function sourceHost(url?: string | null): string | null {

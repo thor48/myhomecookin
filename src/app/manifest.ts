@@ -1,12 +1,12 @@
 import type { MetadataRoute } from "next";
-import { SITE_NAME } from "@/lib/site";
+import { SITE_NAME, SITE_SHORT_NAME } from "@/lib/site";
 
 // Makes the site installable ("Add to Home Screen") and, on Android,
 // adds it to the share sheet so recipe links can be sent straight to /add.
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: SITE_NAME,
-    short_name: SITE_NAME.length > 12 ? "Recipes" : SITE_NAME,
+    short_name: SITE_SHORT_NAME,
     description: "Recipes our friends and family love to make.",
     start_url: "/",
     display: "standalone",

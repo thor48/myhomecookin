@@ -5,12 +5,12 @@ import "./globals.css";
 const sans = Inter({ variable: "--font-sans", subsets: ["latin"] });
 const serif = Fraunces({ variable: "--font-serif", subsets: ["latin"] });
 
-import { SITE_NAME } from "@/lib/site";
+import { SITE_NAME, SITE_SHORT_NAME } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: { default: SITE_NAME, template: `%s · ${SITE_NAME}` },
   description: "Recipes our friends and family love to make.",
-  appleWebApp: { capable: true, title: SITE_NAME, statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: SITE_SHORT_NAME, statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

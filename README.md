@@ -1,4 +1,4 @@
-# Family Recipes
+# My Home Cookin'
 
 A mobile-friendly front end for a self-hosted [Mealie](https://mealie.io) server.
 Friends and family browse, cook from, and add recipes here. Mealie stays on your
@@ -74,7 +74,7 @@ starts with `changeme@example.com` / `MyPassword`; change that right away.
    Set both containers' *Network Type* to `Custom: recipes`.
 3. **Build this app's image.** On your Mac (Unraid is x86_64):
    ```bash
-   docker build --platform linux/amd64 --build-arg NEXT_PUBLIC_SITE_NAME="Thorberg Recipes" -t recipes-web .
+   docker build --platform linux/amd64 --build-arg NEXT_PUBLIC_SITE_NAME="My Home Cookin'" -t recipes-web .
    ```
    Push it to a registry (e.g. GitHub Container Registry), or `docker save` it
    and `docker load` it on Unraid.

@@ -18,7 +18,7 @@ export default function AddPage({ searchParams }: PageProps<"/add">) {
 }
 
 /**
- * When the app is installed on Android, "Share → Family Recipes" from the
+ * When the app is installed on Android, "Share → Home Cookin'" from the
  * browser opens /add?url=…&text=… (see manifest.ts). Some apps put the link
  * in `text`, so pull the first URL out of either.
  */
