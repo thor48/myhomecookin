@@ -8,8 +8,11 @@ import {
   findByOriginalUrl,
   login,
   MealieAuthError,
+  cardAssets,
+  getRecipe,
   MealieError,
   setRecipeImage,
+  uploadCardPhoto,
 } from "@/lib/mealie";
 import {
   isSupportedImage,
@@ -111,7 +114,9 @@ export async function createManualAction(
   const steps = lines(formData.get("steps"));
   const source = String(formData.get("source") ?? "").trim();
   const credit = String(formData.get("credit") ?? "").trim().slice(0, 200);
-  const photo = formData.get("photo");
+  const photos = formData
+    .getAll("photo")
+    .filter((p): p is File => p instanceof File && p.size > 0 && isSupportedImage(p.type));
 
   if (!name) return { error: "Give the recipe a name." };
   if (ingredients.length === 0) return { error: "Add at least one ingredient." };
@@ -139,13 +144,17 @@ export async function createManualAction(
     return { error: message(e) };
   }
 
-  // The photo it was read from becomes the recipe's picture. The recipe is
-  // already saved, so a failed upload shouldn't lose it.
-  if (photo instanceof File && photo.size > 0 && isSupportedImage(photo.type)) {
+  // Keep every photo it was read from as the original card, and use the
+  // first as the recipe's picture until someone adds a photo of the dish.
+  // The recipe is already saved, so a failed upload shouldn't lose it.
+  if (photos.length > 0) {
     try {
-      await setRecipeImage(token, slug, photo, photo.type.split("/")[1].replace("jpeg", "jpg"));
+      await setRecipeImage(token, slug, photos[0], extensionOf(photos[0]));
+      for (const [i, p] of photos.entries()) {
+        await uploadCardPhoto(token, slug, p, extensionOf(p), i + 1);
+      }
     } catch (e) {
-      console.error("Saving recipe photo failed:", e);
+      console.error("Saving recipe card photos failed:", e);
     }
   }
   redirect(`/recipes/${slug}?added=1`);
@@ -179,4 +188,49 @@ export async function readPhotosAction(formData: FormData): Promise<PhotoReadRes
     console.error("Photo import failed:", e);
     return { error: "Something went wrong reading the photos. Please try again." };
   }
+}
+
+// ---------------------------------------------------------------------------
+
+function extensionOf(file: File) {
+  return file.type.split("/")[1].replace("jpeg", "jpg");
+}
+
+export type PhotoAddState = { error?: string; done?: number } | undefined;
+
+/**
+ * Add a photo to an existing recipe:
+ *   kind "dish" → becomes the recipe's main picture
+ *   kind "card" → kept with the original recipe card photos
+ */
+export async function addRecipePhotoAction(
+  _prev: PhotoAddState,
+  formData: FormData,
+): Promise<PhotoAddState> {
+  const slug = String(formData.get("slug") ?? "");
+  const kind = formData.get("kind") === "card" ? "card" : "dish";
+  const photo = formData.get("photo");
+  if (!slug) return { error: "Something went wrong. Reload and try again." };
+  if (!(photo instanceof File) || photo.size === 0) return { error: "Choose a photo first." };
+  if (!isSupportedImage(photo.type)) return { error: "Photos need to be JPEG, PNG or WebP." };
+  if (photo.size > MAX_PHOTO_BYTES) return { error: "That photo is too large." };
+
+  const token = await requireToken();
+  try {
+    const recipe = await getRecipe(token, slug);
+    if (kind === "dish") {
+      await setRecipeImage(token, slug, photo, extensionOf(photo));
+    } else {
+      await uploadCardPhoto(token, slug, photo, extensionOf(photo), cardAssets(recipe).length + 1);
+      // A recipe with no picture yet shows the card until a dish photo is added.
+      if (!recipe.image) await setRecipeImage(token, slug, photo, extensionOf(photo));
+    }
+  } catch (e) {
+    if (e instanceof MealieAuthError) redirect("/logout?expired=1");
+    if (e instanceof MealieError && e.status === 403) {
+      return { error: "You can't change this recipe. Ask whoever added it." };
+    }
+    return { error: message(e) };
+  }
+  return { done: Date.now() };
 }

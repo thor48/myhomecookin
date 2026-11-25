@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import type { RecipeDraft } from "@/lib/photo-import";
+import { shrinkPhoto } from "@/lib/shrink-photo";
 import { createManualAction, importFromUrlAction, readPhotosAction } from "../../actions";
 
 type Tab = "link" | "photo" | "manual";
@@ -124,7 +125,7 @@ function PhotoImport({ enabled }: { enabled: boolean }) {
             </p>
           )}
         </div>
-        <ManualForm draft={draft} photo={photos[0]?.file} />
+        <ManualForm draft={draft} photos={photos.map((p) => p.file)} />
         <button
           type="button"
           onClick={() => setDraft(undefined)}
@@ -236,31 +237,14 @@ function PhotoImport({ enabled }: { enabled: boolean }) {
   );
 }
 
-/**
- * Downsize to at most 1568px on the long edge as JPEG. That's as much detail
- * as Claude uses, keeps uploads quick on mobile data, and lowers the cost.
- */
-async function shrinkPhoto(file: File, maxEdge = 1568): Promise<File> {
-  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-  const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.85));
-  if (!blob) throw new Error("Could not encode photo");
-  return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
-}
-
 // ---------------------------------------------------------------------------
 
-function ManualForm({ draft, photo }: { draft?: RecipeDraft; photo?: File }) {
+function ManualForm({ draft, photos = [] }: { draft?: RecipeDraft; photos?: File[] }) {
   const [state, action, pending] = useActionState(createManualAction, undefined);
 
-  // Attach the original photo so it becomes the recipe's picture.
+  // Attach the card photos: they're kept with the recipe.
   const submit = (formData: FormData) => {
-    if (photo) formData.set("photo", photo);
+    photos.forEach((p) => formData.append("photo", p));
     action(formData);
   };
 
@@ -332,8 +316,11 @@ function ManualForm({ draft, photo }: { draft?: RecipeDraft; photo?: File }) {
       <Field label="Website it came from" hint="optional">
         <input name="source" type="url" inputMode="url" className="field" placeholder="https://…" />
       </Field>
-      {photo && (
-        <p className="text-sm text-muted">The first photo will be saved as the recipe&apos;s picture.</p>
+      {photos.length > 0 && (
+        <p className="text-sm text-muted">
+          {photos.length === 1 ? "The photo" : photos.length === 2 ? "Both photos" : `All ${photos.length} photos`} will be kept with the
+          recipe as the original card.
+        </p>
       )}
       <ErrorText error={state?.error} />
       <button type="submit" disabled={pending} className="btn w-full">

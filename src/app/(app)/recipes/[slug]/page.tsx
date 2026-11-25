@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache, Suspense } from "react";
-import { describeYield, getRecipe, MealieError, type Recipe } from "@/lib/mealie";
+import { cardAssets, describeYield, getRecipe, MealieError, type Recipe } from "@/lib/mealie";
 import { withMealie } from "@/lib/session";
 import { SourceCredit } from "@/components/source-credit";
 import { sourceCredit } from "@/lib/site";
+import { AddPhoto } from "./add-photo";
+import { CardPhotos } from "./card-photos";
 import { RecipeBody } from "./recipe-body";
 
 type Props = PageProps<"/recipes/[slug]">;
@@ -56,6 +58,7 @@ async function RecipeView({ params }: { params: Props["params"] }) {
   const { slug } = await params;
   const recipe = await loadRecipe(slug);
   const credit = sourceCredit(recipe.extras);
+  const cards = cardAssets(recipe);
 
   const meta = [
     describeYield(recipe) ?? ["", null],
@@ -69,7 +72,7 @@ async function RecipeView({ params }: { params: Props["params"] }) {
       {recipe.image && (
         // eslint-disable-next-line @next/next/no-img-element -- served via /img proxy
         <img
-          src={`/img/${recipe.id}?size=original`}
+          src={`/img/${recipe.id}?size=original&v=${recipe.image}`}
           alt=""
           className="-mx-4 mb-5 aspect-[4/3] w-[calc(100%+2rem)] max-w-none object-cover sm:mx-0 sm:w-full sm:rounded-2xl"
         />
@@ -111,6 +114,19 @@ async function RecipeView({ params }: { params: Props["params"] }) {
           ))}
         </section>
       )}
+
+      <section className="mt-10">
+        {cards.length > 0 && (
+          <>
+            <h2 className="mb-1 font-serif text-2xl font-semibold">Original recipe card</h2>
+            <p className="mb-3 text-sm text-muted">Tap to see it full size.</p>
+            <CardPhotos
+              cards={cards.map((c) => ({ name: c.name, src: `/asset/${recipe.id}/${c.fileName}` }))}
+            />
+          </>
+        )}
+        <AddPhoto slug={recipe.slug} />
+      </section>
 
       {recipe.orgURL && (
         <footer className="mt-12 border-t border-border pt-4">

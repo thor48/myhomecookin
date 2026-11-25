@@ -63,12 +63,16 @@ export type Instruction = {
   text: string;
 };
 
+export type RecipeAsset = { name: string; icon: string; fileName: string };
+
 export type Recipe = RecipeSummary & {
   recipeIngredient: Ingredient[];
   recipeInstructions: Instruction[];
   notes?: { title: string; text: string }[];
   /** Free-form key/values. We keep a text credit ("Aunt Mary") in `source_credit`. */
   extras?: Record<string, unknown> | null;
+  /** Files attached to the recipe. Card photos are named "Recipe card 1", "Recipe card 2"… */
+  assets?: RecipeAsset[];
   [key: string]: unknown;
 };
 
@@ -283,6 +287,37 @@ export async function setRecipeImage(token: string, slug: string, image: Blob, e
 
 export const IMAGE_SIZES = ["original", "min-original", "tiny-original"] as const;
 export type ImageSize = (typeof IMAGE_SIZES)[number];
+
+// Photos of the original recipe card are stored as recipe assets.
+const CARD_PREFIX = "Recipe card";
+
+export function cardAssets(recipe: Recipe): RecipeAsset[] {
+  return (recipe.assets ?? [])
+    .filter((a) => a.name.startsWith(CARD_PREFIX))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+}
+
+/** Attach a photo of the original card. `number` makes the name "Recipe card <number>". */
+export function uploadCardPhoto(token: string, slug: string, photo: Blob, extension: string, number: number) {
+  const form = new FormData();
+  form.set("name", `${CARD_PREFIX} ${number}`);
+  form.set("icon", "mdi-file-image");
+  form.set("extension", extension);
+  form.set("file", photo, `card.${extension}`);
+  return json<RecipeAsset>(`/api/recipes/${encodeURIComponent(slug)}/assets`, token, {
+    method: "POST",
+    body: form,
+  });
+}
+
+/** Raw asset file from Mealie, streamed back through /asset/[id]/[file]. */
+export function fetchRecipeAsset(token: string, recipeId: string, fileName: string) {
+  return mealieFetch(
+    `/api/media/recipes/${encodeURIComponent(recipeId)}/assets/${encodeURIComponent(fileName)}`,
+    token,
+    { headers: { Accept: "image/*" } },
+  );
+}
 
 /** Raw image response from Mealie, streamed back through /img/[id]. */
 export function fetchRecipeImage(token: string, recipeId: string, size: ImageSize) {

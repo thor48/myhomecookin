@@ -111,7 +111,7 @@ function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
         {recipe.image ? (
           // eslint-disable-next-line @next/next/no-img-element -- served via /img proxy
           <img
-            src={`/img/${recipe.id}?size=min-original`}
+            src={`/img/${recipe.id}?size=min-original&v=${recipe.image}`}
             alt=""
             loading="lazy"
             className="size-full object-cover transition group-hover:scale-[1.02]"

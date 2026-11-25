@@ -21,9 +21,14 @@ Phone ──https──▶ Cloudflare Tunnel ──▶ this app (Next.js, :3000)
     making a duplicate.
   - **Photo:** snap a recipe card, cookbook page or screenshot (up to 4
     photos). Claude reads it and fills in the form for the person to check
-    and fix before saving. The first photo becomes the recipe's picture.
-    Needs `ANTHROPIC_API_KEY` (see below).
+    and fix before saving. Every photo is kept in an "Original recipe card"
+    section (tap to enlarge), and the first is the recipe's picture until
+    someone adds a photo of the dish. Needs `ANTHROPIC_API_KEY` (see below).
   - **Type it:** for family recipes.
+- **Recipe photos:** any recipe page has "Photo of the dish" (replaces the
+  main picture) and "Add a card photo" buttons. Card photos are stored as
+  Mealie recipe assets and served through `/asset/[id]/[file]`. Mealie serves
+  assets without a login, which is one more reason to keep it off the internet.
 - **Credits:** a website gets an "Adapted from *site*" backlink. A person or
   book gets "From Aunt Mary" (stored in the recipe's `extras.source_credit`
   in Mealie).
