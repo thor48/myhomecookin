@@ -381,6 +381,7 @@ function ManualForm({ draft, photos = [] }: { draft?: RecipeDraft; photos?: File
           placeholder={"Heat the oven to 350°F.\nBeat the eggs and sugar…"}
         />
       </Field>
+      <MarkdownHint />
       <Field label="Notes" hint="optional">
         <textarea
           name="notes"
@@ -505,6 +506,16 @@ function ErrorText({ error }: { error?: string }) {
   return (
     <p role="alert" className="text-sm text-danger">
       {error}
+    </p>
+  );
+}
+
+/** Ingredients and steps may use a little markdown; plain text is fine. */
+function MarkdownHint() {
+  return (
+    <p className="-mt-2 text-xs text-muted">
+      Plain text is fine. Optional extras for ingredients and steps: <code>**bold**</code>,{" "}
+      <code>*italic*</code>, <code>[a link](https://…)</code>.
     </p>
   );
 }

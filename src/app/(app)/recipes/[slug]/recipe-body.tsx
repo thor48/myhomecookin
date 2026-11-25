@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { MarkdownBlock, MarkdownInline } from "@/lib/markdown";
 
 type Item = { title: string | null; text: string };
 
@@ -62,7 +63,7 @@ export function RecipeBody({ ingredients, steps }: { ingredients: Item[]; steps:
                     className="mt-1 size-5 shrink-0 accent-[var(--accent)]"
                   />
                   <span className={haveIngredient.has(i) ? "text-muted line-through" : ""}>
-                    {ing.text}
+                    <MarkdownInline text={ing.text} />
                   </span>
                 </label>
               </li>
@@ -79,11 +80,21 @@ export function RecipeBody({ ingredients, steps }: { ingredients: Item[]; steps:
             return (
               <li key={i}>
                 {step.title && <h3 className="mt-4 mb-2 font-semibold">{step.title}</h3>}
-                <button
-                  type="button"
-                  onClick={() => setDoneStep((s) => toggle(s, i))}
+                {/* A div, not a <button>, so links inside a step stay valid and clickable. */}
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    if ((e.target as Element).closest("a")) return;
+                    setDoneStep((s) => toggle(s, i));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget || (e.key !== "Enter" && e.key !== " ")) return;
+                    e.preventDefault();
+                    setDoneStep((s) => toggle(s, i));
+                  }}
                   aria-pressed={done}
-                  className={`flex w-full gap-4 rounded-xl border p-4 text-left transition ${
+                  className={`flex w-full cursor-default gap-4 rounded-xl border p-4 text-left transition ${
                     done ? "border-border bg-transparent opacity-50" : "border-transparent bg-surface shadow-card"
                   }`}
                 >
@@ -94,8 +105,10 @@ export function RecipeBody({ ingredients, steps }: { ingredients: Item[]; steps:
                   >
                     {done ? "✓" : i + 1}
                   </span>
-                  <span className="leading-relaxed whitespace-pre-line">{step.text}</span>
-                </button>
+                  <div className="min-w-0 leading-relaxed whitespace-pre-line">
+                    <MarkdownBlock text={step.text} />
+                  </div>
+                </div>
               </li>
             );
           })}

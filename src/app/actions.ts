@@ -172,9 +172,10 @@ export async function importFromUrlAction(
 function lines(value: FormDataEntryValue | null) {
   return String(value ?? "")
     .split(/\r?\n/)
-    // Strip list markers ("- ", "• ", "1. ", "2) "), but never part of a number:
-    // "0.25 tsp salt" and "1.5 cups" must stay as they are.
-    .map((l) => l.replace(/^\s*(?:[-*•]\s*|\d+[.)]\s+)/, "").trim())
+    // Strip list markers ("- ", "• ", "* ", "1. ", "2) "), but never part of a number:
+    // "0.25 tsp salt" and "1.5 cups" must stay as they are. A "*" needs a space
+    // after it, so markdown like "**Dough:** …" keeps its stars.
+    .map((l) => l.replace(/^\s*(?:[-•]\s*|\*\s+|\d+[.)]\s+)/, "").trim())
     .filter(Boolean);
 }
 

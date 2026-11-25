@@ -63,6 +63,7 @@ export function EditForm({ slug, initial }: { slug: string; initial: Initial }) 
           className="field"
         />
       </Field>
+      <MarkdownHint />
       <Field label="Notes" hint="optional">
         <textarea name="notes" rows={3} defaultValue={initial.notes} className="field" />
       </Field>
@@ -156,5 +157,15 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       </span>
       {children}
     </label>
+  );
+}
+
+/** Ingredients and steps may use a little markdown; plain text is fine. */
+function MarkdownHint() {
+  return (
+    <p className="-mt-2 text-xs text-muted">
+      Plain text is fine. Optional extras for ingredients and steps: <code>**bold**</code>,{" "}
+      <code>*italic*</code>, <code>[a link](https://…)</code>.
+    </p>
   );
 }
