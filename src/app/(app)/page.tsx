@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { listRecipes, type RecipeSummary } from "@/lib/mealie";
+import { getFavoriteIds, listRecipes } from "@/lib/mealie";
 import { withMealie } from "@/lib/session";
-import { SourceCredit } from "@/components/source-credit";
+import { GridSkeleton, ListTabs, RecipeGrid } from "@/components/recipe-grid";
 
 export default function RecipesPage({ searchParams }: PageProps<"/">) {
   return (
@@ -10,11 +10,12 @@ export default function RecipesPage({ searchParams }: PageProps<"/">) {
       <Suspense>
         <Welcome searchParams={searchParams} />
       </Suspense>
+      <ListTabs current="all" />
       <Suspense fallback={<SearchBox />}>
         <SearchBoxWithQuery searchParams={searchParams} />
       </Suspense>
       <Suspense fallback={<GridSkeleton />}>
-        <RecipeGrid searchParams={searchParams} />
+        <RecipeList searchParams={searchParams} />
       </Suspense>
     </>
   );
@@ -68,11 +69,13 @@ function SearchBox({ q }: { q?: string }) {
   );
 }
 
-async function RecipeGrid({ searchParams }: { searchParams: SP }) {
+async function RecipeList({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;
   const q = one(sp.q)?.trim();
   const page = Math.max(1, Number(one(sp.page)) || 1);
-  const data = await withMealie((t) => listRecipes(t, { search: q, page }));
+  const [data, favorites] = await withMealie((t) =>
+    Promise.all([listRecipes(t, { search: q, page }), getFavoriteIds(t)]),
+  );
 
   if (data.items.length === 0) {
     return (
@@ -98,13 +101,7 @@ async function RecipeGrid({ searchParams }: { searchParams: SP }) {
         {data.total} {data.total === 1 ? "recipe" : "recipes"}
         {q ? ` matching “${q}”` : ""}
       </p>
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {data.items.map((r) => (
-          <li key={r.id}>
-            <RecipeCard recipe={r} />
-          </li>
-        ))}
-      </ul>
+      <RecipeGrid recipes={data.items} favorites={favorites} />
       {data.total_pages > 1 && (
         <nav className="mt-8 flex items-center justify-center gap-3" aria-label="Pages">
           {page > 1 && (
@@ -123,45 +120,5 @@ async function RecipeGrid({ searchParams }: { searchParams: SP }) {
         </nav>
       )}
     </>
-  );
-}
-
-function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
-  return (
-    <Link
-      href={`/recipes/${recipe.slug}`}
-      className="group block overflow-hidden rounded-xl bg-surface shadow-card transition active:scale-[0.99]"
-    >
-      <div className="aspect-[4/3] bg-accent-soft">
-        {recipe.image ? (
-          // eslint-disable-next-line @next/next/no-img-element -- served via /img proxy
-          <img
-            src={`/img/${recipe.id}?size=min-original&v=${recipe.image}`}
-            alt=""
-            loading="lazy"
-            className="size-full object-cover transition group-hover:scale-[1.02]"
-          />
-        ) : (
-          <div className="grid size-full place-items-center text-4xl opacity-60">🍽️</div>
-        )}
-      </div>
-      <div className="flex flex-col gap-0.5 p-3">
-        <h2 className="line-clamp-2 font-serif text-[1.05rem] font-bold leading-snug">{recipe.name}</h2>
-        <SourceCredit url={recipe.orgURL} compact />
-      </div>
-    </Link>
-  );
-}
-
-function GridSkeleton() {
-  return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-busy>
-      {Array.from({ length: 8 }, (_, i) => (
-        <li key={i} className="overflow-hidden rounded-xl bg-surface shadow-card">
-          <div className="aspect-[4/3] animate-pulse bg-accent-soft" />
-          <div className="m-3 h-4 w-3/4 animate-pulse rounded bg-accent-soft" />
-        </li>
-      ))}
-    </ul>
   );
 }

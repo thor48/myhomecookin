@@ -25,6 +25,10 @@ Phone ──https──▶ Cloudflare Tunnel ──▶ this app (Next.js, :3000)
     section (tap to enlarge), and the first is the recipe's picture until
     someone adds a photo of the dish. Needs `ANTHROPIC_API_KEY` (see below).
   - **Type it:** for family recipes.
+- **♥ My Recipes:** a heart on every recipe card and page saves it to that
+  person's favorites (stored per person in Mealie). **My Recipes** lists their
+  favorites and the recipes they added; switch with the tabs at the top of the
+  home page or the footer link.
 - **Editing and deleting:** an ✏️ Edit button on recipes you're allowed to
   change. Family members can edit recipes they added; admins can edit and
   delete any recipe (delete asks for a second tap). The app checks this on the

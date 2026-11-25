@@ -23,6 +23,7 @@ import {
   MealieError,
   recipeAccess,
   registerWithInvite,
+  setFavorite,
   setRecipeImage,
   updateRecipe,
   uploadCardPhoto,
@@ -528,4 +529,20 @@ export async function deleteRecipeAction(slug: string): Promise<{ error: string 
     return { error: message(e) };
   }
   redirect(`/?deleted=${encodeURIComponent(name.slice(0, 80))}`);
+}
+
+// ---------------------------------------------------------------------------
+// Favorites
+
+/** Add or remove a recipe from the signed-in user's favorites. */
+export async function setFavoriteAction(slug: string, favorite: boolean): Promise<{ error?: string }> {
+  const token = await requireToken();
+  try {
+    const self = await getSelf(token);
+    await setFavorite(token, self.id, slug, Boolean(favorite));
+    return {};
+  } catch (e) {
+    if (e instanceof MealieAuthError) redirect("/logout?expired=1");
+    return { error: message(e) };
+  }
 }

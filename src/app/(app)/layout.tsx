@@ -25,7 +25,10 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 pb-8">{children}</main>
       <footer className="border-t border-border pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
         <nav className="mx-auto flex max-w-5xl items-center justify-center gap-6 px-4 pt-5 text-sm">
-          <Link href="/invite" className="font-bold text-link underline-offset-2 hover:underline">
+          <Link href="/my-recipes" className="font-bold text-link underline-offset-2 hover:underline">
+            ♥ My Recipes
+          </Link>
+          <Link href="/invite" className="text-muted hover:text-foreground">
             Invite family
           </Link>
           <Link href="/add" className="text-muted hover:text-foreground">

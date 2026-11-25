@@ -212,7 +212,7 @@ export async function registerWithInvite(input: {
 
 export function listRecipes(
   token: string,
-  opts: { search?: string; page?: number; perPage?: number } = {},
+  opts: { search?: string; page?: number; perPage?: number; queryFilter?: string } = {},
 ) {
   const params = new URLSearchParams({
     page: String(opts.page ?? 1),
@@ -221,7 +221,45 @@ export function listRecipes(
     orderDirection: "desc",
   });
   if (opts.search) params.set("search", opts.search);
+  if (opts.queryFilter) params.set("queryFilter", opts.queryFilter);
   return json<Paginated<RecipeSummary>>(`/api/recipes?${params}`, token);
+}
+
+// ---------------------------------------------------------------------------
+// Favorites (each person has their own)
+// ---------------------------------------------------------------------------
+
+/** IDs of the recipes the signed-in user has favorited. */
+export async function getFavoriteIds(token: string): Promise<Set<string>> {
+  const res = await json<{ ratings: { recipeId: string; isFavorite: boolean }[] }>(
+    "/api/users/self/favorites",
+    token,
+  );
+  return new Set(res.ratings.filter((r) => r.isFavorite).map((r) => r.recipeId));
+}
+
+export async function setFavorite(token: string, userId: string, slug: string, favorite: boolean) {
+  await mealieFetch(
+    `/api/users/${encodeURIComponent(userId)}/favorites/${encodeURIComponent(slug)}`,
+    token,
+    { method: favorite ? "POST" : "DELETE" },
+  );
+}
+
+const quoted = (v: string) => `"${v.replace(/["\\]/g, "")}"`;
+
+/** The user's favorite recipes, newest first. */
+export async function listFavoriteRecipes(token: string) {
+  const ids = [...(await getFavoriteIds(token))];
+  if (ids.length === 0) return [];
+  const res = await listRecipes(token, { perPage: 500, queryFilter: `id IN [${ids.map(quoted).join(",")}]` });
+  return res.items;
+}
+
+/** Recipes a user added, newest first. */
+export async function listRecipesAddedBy(token: string, userId: string) {
+  const res = await listRecipes(token, { perPage: 500, queryFilter: `userId = ${quoted(userId)}` });
+  return res.items;
 }
 
 export function getRecipe(token: string, slug: string) {

@@ -2,8 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache, Suspense } from "react";
-import { cardAssets, describeYield, getRecipe, MealieError, recipeAccess, type Recipe } from "@/lib/mealie";
+import {
+  cardAssets,
+  describeYield,
+  getFavoriteIds,
+  getRecipe,
+  MealieError,
+  recipeAccess,
+  type Recipe,
+} from "@/lib/mealie";
 import { currentUser, withMealie } from "@/lib/session";
+import { FavoriteButton } from "@/components/favorite-button";
 import { SourceCredit } from "@/components/source-credit";
 import { niceAmount, sourceCredit } from "@/lib/site";
 import { AddPhoto } from "./add-photo";
@@ -61,7 +70,8 @@ async function RecipeView({ params }: { params: Props["params"] }) {
   const recipe = await loadRecipe(slug);
   const credit = sourceCredit(recipe.extras);
   const cards = cardAssets(recipe);
-  const { canEdit } = recipeAccess(await currentUser(), recipe);
+  const [self, favorites] = await Promise.all([currentUser(), withMealie(getFavoriteIds)]);
+  const { canEdit } = recipeAccess(self, recipe);
 
   const meta = [
     describeYield(recipe) ?? ["", null],
@@ -84,11 +94,14 @@ async function RecipeView({ params }: { params: Props["params"] }) {
       <h1 className="font-serif text-3xl leading-tight font-bold sm:text-4xl">{recipe.name}</h1>
       <div className="mt-2 flex items-start justify-between gap-3">
         <SourceCredit url={recipe.orgURL} credit={credit} />
-        {canEdit && (
-          <Link href={`/recipes/${recipe.slug}/edit`} className="btn-quiet shrink-0 px-3 py-1.5">
-            ✏️ Edit
-          </Link>
-        )}
+        <div className="flex shrink-0 gap-2">
+          <FavoriteButton slug={recipe.slug} name={recipe.name} initial={favorites.has(recipe.id)} />
+          {canEdit && (
+            <Link href={`/recipes/${recipe.slug}/edit`} className="btn-quiet shrink-0 px-3 py-1.5">
+              ✏️ Edit
+            </Link>
+          )}
+        </div>
       </div>
       {recipe.description && <p className="mt-4 text-lg leading-relaxed">{recipe.description}</p>}
 
