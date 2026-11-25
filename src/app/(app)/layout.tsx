@@ -8,7 +8,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         <div className="mx-auto flex h-[4.5rem] max-w-5xl items-center gap-3 px-4">
           {/* Horizontal logo: house mark + wordmark, ~142px wide (style guide minimum: 140px). */}
           {/* eslint-disable @next/next/no-img-element -- static brand images */}
-          <Link href="/" className="mr-auto flex shrink-0 items-center gap-1.5" aria-label={`${SITE_NAME} home`}>
+          <Link href="/" className="mr-auto flex shrink-0 items-end gap-1.5" aria-label={`${SITE_NAME} home`}>
             <img src="/brand/logo-mark.png" alt="" width={47} height={60} className="h-[3.75rem] w-auto" />
             <img src="/brand/logo-wordmark.png" alt={SITE_NAME} width={89} height={42} className="h-[2.625rem] w-auto" />
           </Link>
