@@ -9,6 +9,10 @@ import {
   editKitchenItemAction,
   removeKitchenItemAction,
 } from "../../../actions";
+import { callSafely, safeFormAction } from "@/lib/safe-action";
+
+const addMadeSafely = safeFormAction(addMadeAction);
+const addCommentSafely = safeFormAction(addCommentAction);
 
 export type FeedItem = {
   kind: "made" | "comment";
@@ -62,7 +66,7 @@ export function KitchenComposer({ slug, recipeId }: { slug: string; recipeId: st
 
 function MadeForm({ slug, onDone }: { slug: string; onDone: () => void }) {
   const router = useRouter();
-  const [state, action, pending] = useActionState(addMadeAction, undefined);
+  const [state, action, pending] = useActionState(addMadeSafely, undefined);
   const [photo, setPhoto] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>();
   const [photoError, setPhotoError] = useState<string>();
@@ -165,7 +169,7 @@ function MadeForm({ slug, onDone }: { slug: string; onDone: () => void }) {
 
 function CommentForm({ recipeId, onDone }: { recipeId: string; onDone: () => void }) {
   const router = useRouter();
-  const [state, action, pending] = useActionState(addCommentAction, undefined);
+  const [state, action, pending] = useActionState(addCommentSafely, undefined);
   useEffect(() => {
     if (state?.done) {
       router.refresh();
@@ -273,7 +277,7 @@ function FeedEntry({ item, onPhoto }: { item: FeedItem; onPhoto: (src: string) =
   function save() {
     setError(undefined);
     start(async () => {
-      const r = await editKitchenItemAction(item.kind, item.id, text);
+      const r = await callSafely(() => editKitchenItemAction(item.kind, item.id, text));
       if (r.error) setError(r.error);
       else {
         setEditing(false);
@@ -285,7 +289,7 @@ function FeedEntry({ item, onPhoto }: { item: FeedItem; onPhoto: (src: string) =
   function remove() {
     setError(undefined);
     start(async () => {
-      const r = await removeKitchenItemAction(item.kind, item.id);
+      const r = await callSafely(() => removeKitchenItemAction(item.kind, item.id));
       if (r.error) setError(r.error);
       else router.refresh();
     });

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { createInviteAction } from "../../actions";
+import { callSafely } from "@/lib/safe-action";
 import { SITE_NAME } from "@/lib/site";
 
 const CHOICES = [
@@ -22,7 +23,7 @@ export function InviteForm() {
     setError(undefined);
     setCopied(false);
     start(async () => {
-      const result = await createInviteAction(uses);
+      const result = await callSafely(() => createInviteAction(uses));
       if ("error" in result) setError(result.error);
       else setLink(result);
     });

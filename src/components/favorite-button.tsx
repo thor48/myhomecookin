@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { setFavoriteAction } from "@/app/actions";
+import { callSafely } from "@/lib/safe-action";
 
 /**
  * ♥ toggle for a recipe. Updates instantly and switches back if saving fails.
@@ -32,7 +33,7 @@ export function FavoriteButton({
     setFavorite(next);
     setError(false);
     start(async () => {
-      const result = await setFavoriteAction(slug, next);
+      const result = await callSafely(() => setFavoriteAction(slug, next));
       if (result.error) {
         setFavorite(!next);
         setError(true);

@@ -4,6 +4,11 @@ import { useActionState, useState, useTransition } from "react";
 import { deleteRecipeAction, updateRecipeAction } from "../../../../actions";
 import { CategoryPicker } from "@/components/category-picker";
 import { keepFormSubmit } from "@/lib/keep-form";
+import { StirOverlay, STIR_MS } from "@/components/stir-overlay";
+import { callSafely, safeFormAction } from "@/lib/safe-action";
+
+// Saving shows the stirring logo for at least STIR_MS.
+const updateSafely = safeFormAction(updateRecipeAction, { minMs: STIR_MS });
 
 type Initial = {
   name: string;
@@ -19,7 +24,7 @@ type Initial = {
 };
 
 export function EditForm({ slug, initial }: { slug: string; initial: Initial }) {
-  const [state, action, pending] = useActionState(updateRecipeAction, undefined);
+  const [state, action, pending] = useActionState(updateSafely, undefined);
   // Keeps your edits if the server sends back an error.
   const onSubmit = keepFormSubmit(action);
 
@@ -81,6 +86,7 @@ export function EditForm({ slug, initial }: { slug: string; initial: Initial }) 
       <button type="submit" disabled={pending} className="btn w-full">
         {pending ? "Saving…" : "Save changes"}
       </button>
+      <StirOverlay show={pending} label="Saving your changes…" />
     </form>
   );
 }
@@ -94,7 +100,7 @@ export function DeleteRecipe({ slug, name }: { slug: string; name: string }) {
   function remove() {
     setError(undefined);
     start(async () => {
-      const result = await deleteRecipeAction(slug);
+      const result = await callSafely(() => deleteRecipeAction(slug));
       if (result?.error) setError(result.error);
     });
   }

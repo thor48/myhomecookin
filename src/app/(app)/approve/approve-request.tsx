@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { approveRequestAction } from "../../actions";
+import { callSafely } from "@/lib/safe-action";
 import { SITE_NAME } from "@/lib/site";
 
 type Request = { name: string; email: string; note: string; at: number };
@@ -60,7 +61,7 @@ export function ApproveRequest() {
   function approve() {
     setError(undefined);
     start(async () => {
-      const result = await approveRequestAction(request!.name);
+      const result = await callSafely(() => approveRequestAction(request!.name));
       if ("error" in result) setError(result.error);
       else setLink(result.url);
     });

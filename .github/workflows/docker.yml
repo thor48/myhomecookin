@@ -62,5 +62,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             DEPLOYMENT_ID=${{ github.sha }}
+          # Repository secret; keeps server action IDs stable across releases.
+          secrets: |
+            actions_key=${{ secrets.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

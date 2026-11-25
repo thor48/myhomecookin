@@ -1,12 +1,10 @@
 "use client";
 
-import { unstable_rethrow, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { callSafely } from "@/lib/safe-action";
 import { shrinkPhoto } from "@/lib/shrink-photo";
 import { addRecipePhotoAction, removeDishPhotoAction, setFeaturedPhotoAction } from "../../../../actions";
-
-/** Shown when the server can't be reached, or the site was updated while this page was open. */
-export const RELOAD_MESSAGE = "Couldn't save that. Reload the page and try again.";
 
 export type PhotoChoice = {
   /** "dish:<file>", "card:<file>" or "made:<entryId>" */
@@ -46,13 +44,8 @@ export function PhotoPicker({
   /** Call a server action, then show the result. A failed call shows a message, never a blank page. */
   function run(call: () => Promise<{ error?: string } | undefined>, after?: () => void) {
     start(async () => {
-      try {
-        const result = await call();
-        if (result?.error) setError(result.error);
-      } catch (e) {
-        unstable_rethrow(e); // let a redirect (e.g. signed out) through
-        setError(RELOAD_MESSAGE);
-      }
+      const result = await callSafely(call);
+      if (result?.error) setError(result.error);
       after?.();
       router.refresh();
     });

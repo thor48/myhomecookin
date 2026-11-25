@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition, type FormEvent } from "react";
 import { loginAction } from "../actions";
+import { callSafely } from "@/lib/safe-action";
 
 /** How long the logo stirs while signing in. */
 const STIR_MS = 2000;
@@ -33,13 +34,13 @@ export function LoginForm({ next }: { next: string }) {
     setSigningIn(true);
     start(async () => {
       // Sign in while the logo stirs; go on once both are done.
-      const [result] = await Promise.all([loginAction(formData), wait(STIR_MS)]);
-      if (result.next) {
+      const [result] = await Promise.all([callSafely(() => loginAction(formData)), wait(STIR_MS)]);
+      if ("next" in result && result.next) {
         window.location.assign(result.next); // stays blurred until the next page loads
         return;
       }
       setSigningIn(false);
-      setUsername(result.username);
+      setUsername("username" in result ? result.username : undefined);
       setError(result.error ?? "Something went wrong. Please try again.");
     });
   }

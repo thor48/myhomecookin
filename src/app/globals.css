@@ -129,6 +129,17 @@ input[type="date"].field::-webkit-date-and-time-value {
   100% { opacity: 0.2; transform: translateY(-20%); }
 }
 
+/* Adding or saving a recipe: the blur and stirring logo fade in (stir-overlay.tsx). */
+@media (prefers-reduced-motion: no-preference) {
+  .stir-overlay {
+    animation: stir-overlay-in 0.25s ease-out both;
+  }
+}
+@keyframes stir-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 /* Login: while signing in, the logo sits above the blur and stirs. */
 html[data-signing-in] .login-logo {
   z-index: 50;

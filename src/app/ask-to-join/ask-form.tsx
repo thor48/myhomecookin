@@ -2,9 +2,12 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { askToJoinAction } from "../actions";
+import { safeFormAction } from "@/lib/safe-action";
+
+const askSafely = safeFormAction(askToJoinAction);
 
 export function AskForm() {
-  const [state, action, pending] = useActionState(askToJoinAction, undefined);
+  const [state, action, pending] = useActionState(askSafely, undefined);
   // When the form was shown; requests sent within seconds are from bots.
   const startedAt = useRef(0);
   useEffect(() => {

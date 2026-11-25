@@ -2,9 +2,12 @@
 
 import { useActionState, useState } from "react";
 import { joinAction } from "../actions";
+import { safeFormAction } from "@/lib/safe-action";
+
+const joinSafely = safeFormAction(joinAction);
 
 export function JoinForm({ token }: { token: string }) {
-  const [state, action, pending] = useActionState(joinAction, undefined);
+  const [state, action, pending] = useActionState(joinSafely, undefined);
   const [showPassword, setShowPassword] = useState(false);
 
   return (

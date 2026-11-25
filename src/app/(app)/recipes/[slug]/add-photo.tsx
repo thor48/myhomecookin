@@ -1,10 +1,10 @@
 "use client";
 
-import { unstable_rethrow, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { callSafely } from "@/lib/safe-action";
 import { shrinkPhoto } from "@/lib/shrink-photo";
 import { addRecipePhotoAction } from "../../../actions";
-import { RELOAD_MESSAGE } from "./edit/photo-picker";
 
 /** "Add a photo of the dish" / "Add a card photo" buttons on a recipe page. */
 export function AddPhoto({ slug }: { slug: string }) {
@@ -31,16 +31,10 @@ export function AddPhoto({ slug }: { slug: string }) {
     form.set("kind", kind);
     form.set("photo", photo);
     start(async () => {
-      try {
-        const result = await addRecipePhotoAction(undefined, form);
-        if (result?.error) setError(result.error);
-        // Show the new photo once it's saved.
-        else router.refresh();
-      } catch (e) {
-        unstable_rethrow(e); // let a redirect (e.g. signed out) through
-        // e.g. the site was updated while this page was open
-        setError(RELOAD_MESSAGE);
-      }
+      const result = await callSafely(() => addRecipePhotoAction(undefined, form));
+      if (result?.error) setError(result.error);
+      // Show the new photo once it's saved.
+      else router.refresh();
     });
   }
 

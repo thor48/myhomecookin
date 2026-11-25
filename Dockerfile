@@ -20,7 +20,15 @@ ENV NEXT_PUBLIC_SITE_NAME=$NEXT_PUBLIC_SITE_NAME \
 # (see deploymentId in next.config.ts). The workflow passes the commit.
 ARG DEPLOYMENT_ID=""
 ENV DEPLOYMENT_ID=$DEPLOYMENT_ID
-RUN npm run build
+# A fixed server-actions key keeps action IDs the same from release to
+# release, so pages left open across a deploy keep working. Passed as a build
+# secret (not a build arg) so it isn't in the image's build history. Without
+# it, Next makes a new key (and new IDs) every build.
+RUN --mount=type=secret,id=actions_key,required=false \
+    if [ -s /run/secrets/actions_key ]; then \
+      export NEXT_SERVER_ACTIONS_ENCRYPTION_KEY="$(cat /run/secrets/actions_key)"; \
+    fi; \
+    npm run build
 
 FROM node:24-alpine AS run
 WORKDIR /app

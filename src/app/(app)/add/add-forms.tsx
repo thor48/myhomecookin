@@ -5,7 +5,13 @@ import type { RecipeDraft } from "@/lib/photo-import";
 import { shrinkPhoto } from "@/lib/shrink-photo";
 import { CategoryPicker } from "@/components/category-picker";
 import { keepFormSubmit } from "@/lib/keep-form";
+import { StirOverlay, STIR_MS } from "@/components/stir-overlay";
+import { callSafely, safeFormAction } from "@/lib/safe-action";
 import { createManualAction, importFromUrlAction, readPhotosAction } from "../../actions";
+
+// Adding a recipe shows the stirring logo for at least STIR_MS.
+const importSafely = safeFormAction(importFromUrlAction, { minMs: STIR_MS });
+const createSafely = safeFormAction(createManualAction, { minMs: STIR_MS });
 
 type Tab = "link" | "photo" | "manual";
 
@@ -46,7 +52,7 @@ export function AddForms({ initialUrl, photoImport }: { initialUrl: string; phot
 // ---------------------------------------------------------------------------
 
 function LinkForm({ initialUrl }: { initialUrl: string }) {
-  const [state, action, pending] = useActionState(importFromUrlAction, undefined);
+  const [state, action, pending] = useActionState(importSafely, undefined);
   const [localError, setLocalError] = useState<string>();
   const onSubmit = keepFormSubmit(
     (fd) => {
@@ -79,6 +85,7 @@ function LinkForm({ initialUrl }: { initialUrl: string }) {
       <button type="submit" disabled={pending} className="btn w-full">
         {pending ? "Reading the recipe…" : "Import recipe"}
       </button>
+      <StirOverlay show={pending} label="Adding it to the cookbook…" />
     </form>
   );
 }
@@ -181,7 +188,7 @@ function PhotoImport({ enabled }: { enabled: boolean }) {
     const form = new FormData();
     photos.forEach((p) => form.append("photos", p.file));
     startReading(async () => {
-      const result = await readPhotosAction(form);
+      const result = await callSafely(() => readPhotosAction(form));
       if ("error" in result) setError(result.error);
       else setDraft(result.draft);
     });
@@ -251,7 +258,7 @@ function PhotoImport({ enabled }: { enabled: boolean }) {
 // ---------------------------------------------------------------------------
 
 function ManualForm({ draft, photos = [] }: { draft?: RecipeDraft; photos?: File[] }) {
-  const [state, action, pending] = useActionState(createManualAction, undefined);
+  const [state, action, pending] = useActionState(createSafely, undefined);
   const [localError, setLocalError] = useState<string>();
   const [dishPhoto, setDishPhoto] = useState<File | null>(null);
   const onSubmit = keepFormSubmit(
@@ -351,6 +358,7 @@ function ManualForm({ draft, photos = [] }: { draft?: RecipeDraft; photos?: File
       <button type="submit" disabled={pending} className="btn w-full">
         {pending ? "Saving…" : "Save recipe"}
       </button>
+      <StirOverlay show={pending} label="Adding it to the cookbook…" />
     </form>
   );
 }
