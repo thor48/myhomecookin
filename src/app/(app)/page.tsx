@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { getFavoriteIds, listRecipes } from "@/lib/mealie";
+import { getFavoriteIds, listRecipes, madeCounts } from "@/lib/mealie";
 import { withMealie } from "@/lib/session";
 import { GridSkeleton, ListTabs, RecipeGrid } from "@/components/recipe-grid";
 
@@ -72,10 +72,22 @@ function SearchBox({ q }: { q?: string }) {
 async function RecipeList({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;
   const q = one(sp.q)?.trim();
-  const page = Math.max(1, Number(one(sp.page)) || 1);
-  const [data, favorites] = await withMealie((t) =>
-    Promise.all([listRecipes(t, { search: q, page }), getFavoriteIds(t)]),
+  const byMade = one(sp.sort) === "made";
+  const page = byMade ? 1 : Math.max(1, Number(one(sp.page)) || 1);
+  const [data, favorites, counts] = await withMealie((t) =>
+    Promise.all([
+      // "Most made" sorts the whole cookbook here, so fetch it all at once.
+      listRecipes(t, byMade ? { search: q, perPage: 1000 } : { search: q, page }),
+      getFavoriteIds(t),
+      madeCounts(t),
+    ]),
   );
+  if (byMade) {
+    data.items.sort(
+      (a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0) || a.name.localeCompare(b.name),
+    );
+    data.total_pages = 1;
+  }
 
   if (data.items.length === 0) {
     return (
@@ -94,14 +106,26 @@ async function RecipeList({ searchParams }: { searchParams: SP }) {
   }
 
   const href = (p: number) => `/?${new URLSearchParams({ ...(q ? { q } : {}), page: String(p) })}`;
+  const sortHref = (made: boolean) =>
+    `/?${new URLSearchParams({ ...(q ? { q } : {}), ...(made ? { sort: "made" } : {}) })}`;
 
   return (
     <>
-      <p className="mb-3 text-sm text-muted">
-        {data.total} {data.total === 1 ? "recipe" : "recipes"}
-        {q ? ` matching “${q}”` : ""}
-      </p>
-      <RecipeGrid recipes={data.items} favorites={favorites} />
+      <div className="mb-3 flex items-center justify-between gap-3 text-sm">
+        <p className="text-muted">
+          {data.total} {data.total === 1 ? "recipe" : "recipes"}
+          {q ? ` matching “${q}”` : ""}
+        </p>
+        <nav aria-label="Sort" className="flex shrink-0 gap-3">
+          <Link href={sortHref(false)} className={byMade ? "text-muted" : "font-bold text-link"}>
+            Newest
+          </Link>
+          <Link href={sortHref(true)} className={byMade ? "font-bold text-link" : "text-muted"}>
+            🍳 Most made
+          </Link>
+        </nav>
+      </div>
+      <RecipeGrid recipes={data.items} favorites={favorites} madeCounts={counts} />
       {data.total_pages > 1 && (
         <nav className="mt-8 flex items-center justify-center gap-3" aria-label="Pages">
           {page > 1 && (

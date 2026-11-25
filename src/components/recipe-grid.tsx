@@ -7,17 +7,20 @@ import { SourceCredit } from "./source-credit";
 export function RecipeGrid({
   recipes,
   favorites,
+  madeCounts,
   refreshOnFavorite = false,
 }: {
   recipes: RecipeSummary[];
   favorites: Set<string>;
+  /** How many times each recipe has been made ("I made this"), for the badge. */
+  madeCounts?: Map<string, number>;
   refreshOnFavorite?: boolean;
 }) {
   return (
     <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
       {recipes.map((r) => (
         <li key={r.id} className="relative">
-          <RecipeCard recipe={r} />
+          <RecipeCard recipe={r} made={madeCounts?.get(r.id) ?? 0} />
           {/* Outside the link, so tapping the heart doesn't open the recipe. */}
           <div className="absolute top-2 right-2">
             <FavoriteButton
@@ -34,13 +37,18 @@ export function RecipeGrid({
   );
 }
 
-function RecipeCard({ recipe }: { recipe: RecipeSummary }) {
+function RecipeCard({ recipe, made }: { recipe: RecipeSummary; made: number }) {
   return (
     <Link
       href={`/recipes/${recipe.slug}`}
       className="group block h-full overflow-hidden rounded-xl bg-surface shadow-card transition active:scale-[0.99]"
     >
-      <div className="aspect-[4/3] bg-accent-soft">
+      <div className="relative aspect-[4/3] bg-accent-soft">
+        {made > 0 && (
+          <span className="absolute bottom-2 left-2 z-[1] rounded-full bg-surface/90 px-2 py-0.5 text-xs font-bold shadow-card backdrop-blur">
+            🍳 Made {made}×
+          </span>
+        )}
         {recipe.image ? (
           // eslint-disable-next-line @next/next/no-img-element -- served via /img proxy
           <img

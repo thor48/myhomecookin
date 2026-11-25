@@ -24,6 +24,17 @@ import {
   recipeAccess,
   registerWithInvite,
   setFavorite,
+  addComment,
+  addMadeEntry,
+  deleteComment,
+  deleteMadeEntry,
+  entryAccess,
+  getComment,
+  getMadeEntry,
+  setLastMade,
+  setMadeEntryImage,
+  updateComment,
+  updateMadeEntryNote,
   setRecipeImage,
   updateRecipe,
   uploadCardPhoto,
@@ -545,4 +556,98 @@ export async function setFavoriteAction(slug: string, favorite: boolean): Promis
     if (e instanceof MealieAuthError) redirect("/logout?expired=1");
     return { error: message(e) };
   }
+}
+
+// ---------------------------------------------------------------------------
+// From the kitchen: "I made this" entries and comments
+
+export type KitchenState = { error?: string; done?: number } | undefined;
+
+/** "I made this": date, optional note and photo. */
+export async function addMadeAction(_prev: KitchenState, formData: FormData): Promise<KitchenState> {
+  const slug = String(formData.get("slug") ?? "");
+  const date = String(formData.get("date") ?? "");
+  const note = String(formData.get("note") ?? "").trim().slice(0, 2000);
+  const photo = formData.get("photo");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { error: "Pick the day you made it." };
+  // Noon UTC keeps the same calendar day in every US time zone.
+  const timestamp = `${date}T12:00:00Z`;
+  if (Date.parse(timestamp) > Date.now() + 36 * 3600 * 1000) return { error: "That date is in the future." };
+  const hasPhoto = photo instanceof File && photo.size > 0;
+  if (hasPhoto && !isSupportedImage(photo.type)) return { error: "Photos need to be JPEG, PNG or WebP." };
+  if (hasPhoto && photo.size > MAX_PHOTO_BYTES) return { error: "That photo is too large." };
+
+  const token = await requireToken();
+  try {
+    const [recipe, self] = await Promise.all([getRecipe(token, slug), getSelf(token)]);
+    const name = self.fullName || self.username;
+    const entry = await addMadeEntry(token, {
+      recipeId: recipe.id,
+      subject: `${name} made this`,
+      note,
+      timestamp,
+      hasImage: hasPhoto,
+    });
+    if (hasPhoto) await setMadeEntryImage(token, entry.id, photo, extensionOf(photo));
+    const last = typeof recipe.lastMade === "string" ? Date.parse(recipe.lastMade) : 0;
+    if (!last || Date.parse(timestamp) >= last) await setLastMade(token, slug, timestamp);
+  } catch (e) {
+    if (e instanceof MealieAuthError) redirect("/logout?expired=1");
+    return { error: message(e) };
+  }
+  return { done: Date.now() };
+}
+
+export async function addCommentAction(_prev: KitchenState, formData: FormData): Promise<KitchenState> {
+  const recipeId = String(formData.get("recipeId") ?? "");
+  const text = String(formData.get("text") ?? "").trim().slice(0, 2000);
+  if (!text) return { error: "Write something first." };
+  const token = await requireToken();
+  try {
+    await addComment(token, recipeId, text);
+  } catch (e) {
+    if (e instanceof MealieAuthError) redirect("/logout?expired=1");
+    return { error: message(e) };
+  }
+  return { done: Date.now() };
+}
+
+type Change = { error?: string };
+
+/** Edit the note on a "made it" entry, or a comment's text. Author or admin only. */
+export async function editKitchenItemAction(kind: "made" | "comment", id: string, text: string): Promise<Change> {
+  const value = String(text ?? "").trim().slice(0, 2000);
+  if (kind === "comment" && !value) return { error: "A comment can't be empty. Remove it instead." };
+  const token = await requireToken();
+  try {
+    const self = await getSelf(token);
+    if (kind === "made") {
+      const entry = await getMadeEntry(token, id);
+      if (!entryAccess(self, entry.userId).canChange) return { error: "You can only change your own posts." };
+      await updateMadeEntryNote(token, entry, value);
+    } else {
+      const comment = await getComment(token, id);
+      if (!entryAccess(self, comment.userId).canChange) return { error: "You can only change your own posts." };
+      await updateComment(token, id, value);
+    }
+  } catch (e) {
+    if (e instanceof MealieAuthError) redirect("/logout?expired=1");
+    return { error: message(e) };
+  }
+  return {};
+}
+
+/** Remove a "made it" entry or a comment. Author or admin only. */
+export async function removeKitchenItemAction(kind: "made" | "comment", id: string): Promise<Change> {
+  const token = await requireToken();
+  try {
+    const self = await getSelf(token);
+    const authorId = kind === "made" ? (await getMadeEntry(token, id)).userId : (await getComment(token, id)).userId;
+    if (!entryAccess(self, authorId).canChange) return { error: "You can only remove your own posts." };
+    await (kind === "made" ? deleteMadeEntry(token, id) : deleteComment(token, id));
+  } catch (e) {
+    if (e instanceof MealieAuthError) redirect("/logout?expired=1");
+    return { error: message(e) };
+  }
+  return {};
 }

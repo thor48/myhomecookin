@@ -17,6 +17,7 @@ import { SourceCredit } from "@/components/source-credit";
 import { niceAmount, sourceCredit } from "@/lib/site";
 import { AddPhoto } from "./add-photo";
 import { CardPhotos } from "./card-photos";
+import { KitchenSection } from "./kitchen";
 import { RecipeBody } from "./recipe-body";
 
 type Props = PageProps<"/recipes/[slug]">;
@@ -148,6 +149,10 @@ async function RecipeView({ params }: { params: Props["params"] }) {
         )}
         <AddPhoto slug={recipe.slug} />
       </section>
+
+      <Suspense fallback={<p className="mt-12 text-sm text-muted">Loading the kitchen log…</p>}>
+        <KitchenSection recipe={recipe} self={self} />
+      </Suspense>
 
       {recipe.orgURL && (
         <footer className="mt-12 border-t border-border pt-4">

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { GridSkeleton, ListTabs, RecipeGrid } from "@/components/recipe-grid";
-import { getFavoriteIds, listFavoriteRecipes, listRecipesAddedBy } from "@/lib/mealie";
+import { getFavoriteIds, listFavoriteRecipes, listRecipesAddedBy, madeCounts } from "@/lib/mealie";
 import { currentUser, withMealie } from "@/lib/session";
 
 export const metadata: Metadata = { title: "My Recipes" };
@@ -20,8 +20,8 @@ export default function MyRecipesPage() {
 
 async function MyLists() {
   const self = await currentUser();
-  const [favorites, added, favoriteIds] = await withMealie((t) =>
-    Promise.all([listFavoriteRecipes(t), listRecipesAddedBy(t, self.id), getFavoriteIds(t)]),
+  const [favorites, added, favoriteIds, counts] = await withMealie((t) =>
+    Promise.all([listFavoriteRecipes(t), listRecipesAddedBy(t, self.id), getFavoriteIds(t), madeCounts(t)]),
   );
 
   return (
@@ -41,7 +41,7 @@ async function MyLists() {
               {favorites.length} {favorites.length === 1 ? "recipe" : "recipes"} you&apos;ve saved.
             </p>
             {/* Refresh so a recipe leaves this list when its ♥ is tapped off. */}
-            <RecipeGrid recipes={favorites} favorites={favoriteIds} refreshOnFavorite />
+            <RecipeGrid recipes={favorites} favorites={favoriteIds} madeCounts={counts} refreshOnFavorite />
           </>
         )}
       </section>
@@ -60,7 +60,7 @@ async function MyLists() {
             <p className="mb-3 text-sm text-muted">
               {added.length} {added.length === 1 ? "recipe" : "recipes"}. You can edit any of these.
             </p>
-            <RecipeGrid recipes={added} favorites={favoriteIds} refreshOnFavorite />
+            <RecipeGrid recipes={added} favorites={favoriteIds} madeCounts={counts} refreshOnFavorite />
           </>
         )}
       </section>

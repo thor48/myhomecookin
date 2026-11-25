@@ -25,6 +25,14 @@ Phone ──https──▶ Cloudflare Tunnel ──▶ this app (Next.js, :3000)
     section (tap to enlarge), and the first is the recipe's picture until
     someone adds a photo of the dish. Needs `ANTHROPIC_API_KEY` (see below).
   - **Type it:** for family recipes.
+- **🍳 From the kitchen:** a section at the bottom of each recipe. "I made
+  this" logs who made it, when (can be backdated), a note and an optional
+  photo; "Comment" is for questions and tips. Newest first; people can edit or
+  remove their own posts, admins any. Made-it entries are Mealie timeline
+  events (also update Mealie's "last made"); comments are Mealie comments.
+  Only made-it entries count toward the **🍳 Made N×** badge on cards and the
+  **Most made** sort on the home page. Photos go through `/made-photo/...` for
+  signed-in users only.
 - **♥ My Recipes:** a heart on every recipe card and page saves it to that
   person's favorites (stored per person in Mealie). **My Recipes** lists their
   favorites and the recipes they added; switch with the tabs at the top of the
