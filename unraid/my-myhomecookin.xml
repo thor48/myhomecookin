@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!--
+  Unraid container template for My Home Cookin'.
+  Copy to /boot/config/plugins/dockerMan/templates-user/ on the Unraid USB,
+  then Docker tab → Add Container → Template: myhomecookin.
+-->
+<Container version="2">
+  <Name>myhomecookin</Name>
+  <Repository>ghcr.io/thor48/myhomecookin:latest</Repository>
+  <Registry>https://github.com/thor48/myhomecookin/pkgs/container/myhomecookin</Registry>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/thor48/myhomecookin</Support>
+  <Project>https://github.com/thor48/myhomecookin</Project>
+  <Overview>My Home Cookin' — the family recipe site. A mobile-friendly front end for Mealie: browse, cook from and add recipes (from a website link, a photo of a recipe card, or typed in). Mealie stays private on your network; expose only this container (e.g. with a Cloudflare Tunnel).</Overview>
+  <Category>HomeAutomation: Other:</Category>
+  <WebUI>http://[IP]:[PORT:3000]/</WebUI>
+  <Icon>https://raw.githubusercontent.com/thor48/myhomecookin/main/public/icons/icon-512.png</Icon>
+  <Config Name="Web port" Target="3000" Default="3080" Mode="tcp" Description="Port on Unraid for the site. Point the Cloudflare Tunnel at http://UNRAID-IP:this-port." Type="Port" Display="always" Required="true" Mask="false">3080</Config>
+  <Config Name="Mealie URL" Target="MEALIE_URL" Default="" Mode="" Description="Where this container reaches Mealie, e.g. http://192.168.1.10:9925 (Unraid's IP and Mealie's host port). Mealie does not need to be on the internet." Type="Variable" Display="always" Required="true" Mask="false"></Config>
+  <Config Name="Anthropic API key" Target="ANTHROPIC_API_KEY" Default="" Mode="" Description="Optional. Turns on 'Add from a photo' (reads recipe cards with Claude). Leave empty to hide it." Type="Variable" Display="always" Required="false" Mask="true"></Config>
+</Container>

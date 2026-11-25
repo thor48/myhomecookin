@@ -69,25 +69,21 @@ starts with `changeme@example.com` / `MyPassword`; change that right away.
 1. **Mealie:** install it from Community Apps. **Pin the version tag** (e.g.
    `ghcr.io/mealie-recipes/mealie:v3.31.0`, not `latest`), because this app
    depends on Mealie's API. Upgrade on purpose and test after.
-2. **A shared Docker network**, so the two containers can find each other by name:
-   ```bash
-   docker network create recipes
-   ```
-   Set both containers' *Network Type* to `Custom: recipes`.
-3. **Build this app's image.** On your Mac (Unraid is x86_64):
-   ```bash
-   docker build --platform linux/amd64 --build-arg NEXT_PUBLIC_SITE_NAME="My Home Cookin'" -t recipes-web .
-   ```
-   Push it to a registry (e.g. GitHub Container Registry), or `docker save` it
-   and `docker load` it on Unraid.
-4. **Add the container** in Unraid's Docker tab → *Add Container*:
-   - Repository: your image
-   - Network: `Custom: recipes`
-   - Port: container `3000` → host port of your choice
-   - Variable `MEALIE_URL` = `http://mealie:9000` (the Mealie container's name)
-5. **Remote access:** point a Cloudflare Tunnel (or Tailscale) at this app's
-   port. Mealie itself doesn't need to be exposed. Keep using its own UI on
-   your LAN for admin work such as inviting users and backups.
+2. **The app's image** is built by GitHub Actions on every push to `main`
+   (`.github/workflows/docker.yml`) and published as
+   `ghcr.io/thor48/myhomecookin:latest` (plus `:sha-<commit>` for rolling back).
+3. **Add the container.** Copy `unraid/my-myhomecookin.xml` to
+   `/boot/config/plugins/dockerMan/templates-user/` on the Unraid USB, then
+   Docker tab → *Add Container* → *Template*: `myhomecookin`. Fill in:
+   - **Mealie URL:** `http://<unraid-ip>:9925`
+   - **Anthropic API key:** optional, turns on photo import
+   - **Web port:** `3080` (or any free port)
+4. **Remote access:** in Cloudflare Zero Trust → Networks → Tunnels, add a
+   public hostname `myhomecookin.com` → `http://<unraid-ip>:3080` to your
+   existing tunnel. Don't add Mealie: it serves photos without a login, so keep
+   it on your network and use its own UI there for admin work and backups.
+5. **Updating:** push to `main`, wait for the Actions build, then *Check for
+   Updates* → *Update* on the container in Unraid.
 
 ### Photo import
 
