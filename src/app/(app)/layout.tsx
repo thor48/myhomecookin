@@ -46,21 +46,23 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
           />
         </div>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 pb-[min(32vh,17rem)]">{children}</main>
+        {/* Photo credit: one quiet line over the bottom of the photo it credits. */}
+        <p className="absolute inset-x-0 bottom-0 truncate px-4 pb-1.5 text-center text-[0.6875rem] text-white/70 [text-shadow:0_1px_2px_rgb(0_0_0/0.5)]">
+          Background photo by{" "}
+          <a href={BACKGROUND_PHOTO.profileUrl} target="_blank" rel="noopener" className="underline underline-offset-2 hover:text-white">
+            {BACKGROUND_PHOTO.photographer}
+          </a>{" "}
+          on{" "}
+          <a href={BACKGROUND_PHOTO.photoUrl} target="_blank" rel="noopener" className="underline underline-offset-2 hover:text-white">
+            Unsplash
+          </a>
+        </p>
       </div>
       {/* On phones, leave room under the footer for the bottom tab bar. */}
       <footer className="bg-[var(--deep-brown)] text-[#f8f1e9]">
-        <div className="mx-auto max-w-5xl px-4 pt-5 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
+        <div className="mx-auto max-w-5xl px-4 pt-6 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
+          <p className="mb-4 text-center font-script text-3xl leading-tight">Share your kitchen with all</p>
           <InstallButton />
-          <p className="text-center text-xs opacity-75">
-            Background photo by{" "}
-            <a href={BACKGROUND_PHOTO.profileUrl} target="_blank" rel="noopener" className="underline underline-offset-2">
-              {BACKGROUND_PHOTO.photographer}
-            </a>{" "}
-            on{" "}
-            <a href={BACKGROUND_PHOTO.photoUrl} target="_blank" rel="noopener" className="underline underline-offset-2">
-              Unsplash
-            </a>
-          </p>
         </div>
       </footer>
       <Suspense fallback={<BottomTabs path="" />}>
