@@ -11,13 +11,13 @@ export default function LoginPage({ searchParams }: PageProps<"/login">) {
       <div className="mb-8 text-center">
         <h1>
           {/* Stacked logo (includes the name). */}
-          {/* eslint-disable-next-line @next/next/no-img-element -- static SVG */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- static brand image */}
           <img
-            src="/brand/logo-primary.svg"
+            src="/brand/logo-primary.png"
             alt={SITE_NAME}
-            width={160}
-            height={208}
-            className="mx-auto h-52 w-auto"
+            width={140}
+            height={240}
+            className="mx-auto h-60 w-auto"
           />
         </h1>
         <p className="mt-4 text-muted">Sign in with your recipe account.</p>

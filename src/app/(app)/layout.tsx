@@ -6,11 +6,13 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-10 border-b border-border bg-background/90 pt-[env(safe-area-inset-top)] backdrop-blur">
         <div className="mx-auto flex h-[4.5rem] max-w-5xl items-center gap-3 px-4">
-          <Link href="/" className="mr-auto shrink-0" aria-label={`${SITE_NAME} home`}>
-            {/* Horizontal logo; the style guide's minimum is 140px wide (this is ~167px). */}
-            {/* eslint-disable-next-line @next/next/no-img-element -- static SVG */}
-            <img src="/brand/logo-horizontal.svg" alt={SITE_NAME} width={167} height={56} className="h-14 w-auto" />
+          {/* Horizontal logo: house mark + wordmark, ~142px wide (style guide minimum: 140px). */}
+          {/* eslint-disable @next/next/no-img-element -- static brand images */}
+          <Link href="/" className="mr-auto flex shrink-0 items-center gap-1.5" aria-label={`${SITE_NAME} home`}>
+            <img src="/brand/logo-mark.png" alt="" width={47} height={60} className="h-[3.75rem] w-auto" />
+            <img src="/brand/logo-wordmark.png" alt={SITE_NAME} width={89} height={42} className="h-[2.625rem] w-auto" />
           </Link>
+          {/* eslint-enable @next/next/no-img-element */}
           <Link href="/add" className="btn shrink-0 px-3.5 py-2 text-sm whitespace-nowrap">
             + Add
           </Link>
