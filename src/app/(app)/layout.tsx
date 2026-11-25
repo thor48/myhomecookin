@@ -22,9 +22,17 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
           </a>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 pb-[calc(env(safe-area-inset-bottom)+2rem)]">
-        {children}
-      </main>
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 pb-8">{children}</main>
+      <footer className="border-t border-border pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
+        <nav className="mx-auto flex max-w-5xl items-center justify-center gap-6 px-4 pt-5 text-sm">
+          <Link href="/invite" className="font-bold text-link underline-offset-2 hover:underline">
+            Invite family
+          </Link>
+          <Link href="/add" className="text-muted hover:text-foreground">
+            Add a recipe
+          </Link>
+        </nav>
+      </footer>
     </div>
   );
 }

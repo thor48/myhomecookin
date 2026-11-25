@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   createFromUrl,
@@ -9,8 +9,11 @@ import {
   login,
   MealieAuthError,
   cardAssets,
+  createInvite,
   getRecipe,
+  getSelf,
   MealieError,
+  registerWithInvite,
   setRecipeImage,
   uploadCardPhoto,
 } from "@/lib/mealie";
@@ -50,6 +53,11 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
     return { error: message(e), username };
   }
 
+  await startSession(token);
+  redirect(safeNext(formData.get("next")));
+}
+
+async function startSession(token: string) {
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -57,7 +65,6 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
   });
-  redirect(safeNext(formData.get("next")));
 }
 
 // ---------------------------------------------------------------------------
@@ -233,4 +240,68 @@ export async function addRecipePhotoAction(
     return { error: message(e) };
   }
   return { done: Date.now() };
+}
+
+// ---------------------------------------------------------------------------
+// Invites
+
+/** This site's public address (e.g. https://myhomecookin.com), as the visitor reached it. */
+async function siteOrigin() {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const local = /^(localhost|127\.0\.0\.1)(:|$)/.test(host);
+  const proto = h.get("x-forwarded-proto") ?? (local ? "http" : "https");
+  return `${proto}://${host}`;
+}
+
+export type InviteResult = { error: string } | { url: string; uses: number };
+
+/** Create an invite link for 1–10 people to join the cookbook. */
+export async function createInviteAction(uses: number): Promise<InviteResult> {
+  const count = Math.min(10, Math.max(1, Math.round(Number(uses) || 1)));
+  const token = await requireToken();
+  try {
+    const self = await getSelf(token);
+    if (!self.canInvite && !self.admin) {
+      return { error: "Your account can't invite people. Ask whoever runs the cookbook." };
+    }
+    const invite = await createInvite(token, count);
+    return { url: `${await siteOrigin()}/join?token=${encodeURIComponent(invite.token)}`, uses: count };
+  } catch (e) {
+    if (e instanceof MealieAuthError) redirect("/logout?expired=1");
+    return { error: message(e) };
+  }
+}
+
+export type JoinState = { error?: string; name?: string; email?: string } | undefined;
+
+/** Create an account from an invite link, then sign the new person in. */
+export async function joinAction(_prev: JoinState, formData: FormData): Promise<JoinState> {
+  const inviteToken = String(formData.get("token") ?? "");
+  const name = String(formData.get("name") ?? "").trim().slice(0, 80);
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  const keep = { name, email };
+
+  if (!inviteToken) return { error: "This invite link is incomplete. Ask for a new one.", ...keep };
+  if (!name) return { error: "Enter your name.", ...keep };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Enter a valid email address.", ...keep };
+  // Mealie itself accepts any length.
+  if (password.length < 8) return { error: "Use a password of at least 8 characters.", ...keep };
+
+  let token: string;
+  try {
+    await registerWithInvite({ inviteToken, fullName: name, email, password });
+    token = await login(email, password);
+  } catch (e) {
+    if (e instanceof MealieError && e.status === 400) {
+      return { error: "This invite link has expired or was already used. Ask for a new one.", ...keep };
+    }
+    if (e instanceof MealieError && e.status === 409) {
+      return { error: "That email already has an account. Sign in instead.", ...keep };
+    }
+    return { error: message(e), ...keep };
+  }
+  await startSession(token);
+  redirect("/?welcome=1");
 }

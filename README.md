@@ -99,5 +99,12 @@ stack on one machine.
 
 ## Inviting family
 
-In Mealie (on your network): **Settings → Users → Invite**. They follow the
-invite link to set a password, then sign in here.
+1. Signed in as an admin (or anyone you've given **Can invite** in Mealie),
+   tap **Invite family** at the bottom of any page.
+2. Choose who it's for (one person, up to 5, or up to 10) and tap **Make invite
+   link**. Share it by text or email.
+3. They open `https://myhomecookin.com/join?token=…`, enter their name, email
+   and a password (8+ characters), and they're signed in. They never see Mealie.
+
+Each link stops working once it's used up. New accounts can't invite others
+unless you tick **Can invite** on them in Mealie (Settings → Users).

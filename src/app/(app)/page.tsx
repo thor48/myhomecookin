@@ -7,6 +7,9 @@ import { SourceCredit } from "@/components/source-credit";
 export default function RecipesPage({ searchParams }: PageProps<"/">) {
   return (
     <>
+      <Suspense>
+        <Welcome searchParams={searchParams} />
+      </Suspense>
       <Suspense fallback={<SearchBox />}>
         <SearchBoxWithQuery searchParams={searchParams} />
       </Suspense>
@@ -21,6 +24,19 @@ type SP = PageProps<"/">["searchParams"];
 
 function one(v: string | string[] | undefined) {
   return Array.isArray(v) ? v[0] : v;
+}
+
+async function Welcome({ searchParams }: { searchParams: SP }) {
+  if (!(await searchParams).welcome) return null;
+  return (
+    <div className="mb-5 rounded-xl bg-accent-soft px-4 py-3">
+      <p className="font-serif text-lg font-bold">Welcome to the family cookbook!</p>
+      <p className="mt-0.5 text-sm">
+        Have a look around, and add a recipe you love: from a website, a photo of a recipe card,
+        or typed in.
+      </p>
+    </div>
+  );
 }
 
 async function SearchBoxWithQuery({ searchParams }: { searchParams: SP }) {

@@ -90,6 +90,8 @@ export type MealieUser = {
   fullName?: string | null;
   email: string;
   admin?: boolean;
+  /** Mealie permission to create invite links. */
+  canInvite?: boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -159,6 +161,49 @@ export async function login(username: string, password: string): Promise<string>
 
 export function getSelf(token: string) {
   return json<MealieUser>("/api/users/self", token);
+}
+
+// ---------------------------------------------------------------------------
+// Invites
+// ---------------------------------------------------------------------------
+
+export type Invite = { token: string; usesLeft: number };
+
+/** Create an invite to the signed-in user's household. `uses` = how many people can join with it. */
+export function createInvite(token: string, uses: number) {
+  return json<Invite>("/api/households/invitations", token, {
+    method: "POST",
+    ...jsonBody({ uses }),
+  });
+}
+
+/**
+ * Create an account with an invite token. Works even with Mealie's public
+ * sign-up turned off. Throws MealieError 400 (bad/used-up invite) or 409
+ * (email already has an account).
+ */
+export async function registerWithInvite(input: {
+  inviteToken: string;
+  fullName: string;
+  email: string;
+  password: string;
+}) {
+  await mealieFetch("/api/users/register", null, {
+    method: "POST",
+    ...jsonBody({
+      groupToken: input.inviteToken,
+      fullName: input.fullName,
+      email: input.email,
+      // Family sign in with their email, so it doubles as the username.
+      username: input.email,
+      password: input.password,
+      passwordConfirm: input.password,
+      advanced: false,
+      private: false,
+      seedData: false,
+      locale: "en-US",
+    }),
+  });
 }
 
 // ---------------------------------------------------------------------------
