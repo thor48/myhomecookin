@@ -69,3 +69,20 @@ body {
 .btn-quiet {
   @apply inline-flex items-center justify-center gap-2 rounded-lg border border-terracotta bg-transparent px-4 py-2.5 text-sm font-bold text-link transition hover:bg-accent-soft active:scale-[0.98];
 }
+
+/*
+ * iPhone Safari gives date inputs a built-in minimum width and ignores
+ * width:100%, so they stick out of narrow forms. Dropping Safari's native
+ * styling lets them fit; tapping still opens the iOS date picker.
+ */
+input[type="date"].field {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 3rem; /* keeps its height once the native styling is gone */
+}
+input[type="date"].field::-webkit-date-and-time-value {
+  text-align: left; /* Safari centers the date by default */
+}
