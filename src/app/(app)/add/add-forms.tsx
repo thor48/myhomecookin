@@ -3,6 +3,8 @@
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import type { RecipeDraft } from "@/lib/photo-import";
 import { shrinkPhoto } from "@/lib/shrink-photo";
+import { CategoryPicker } from "@/components/category-picker";
+import { keepFormSubmit } from "@/lib/keep-form";
 import { createManualAction, importFromUrlAction, readPhotosAction } from "../../actions";
 
 type Tab = "link" | "photo" | "manual";
@@ -45,9 +47,17 @@ export function AddForms({ initialUrl, photoImport }: { initialUrl: string; phot
 
 function LinkForm({ initialUrl }: { initialUrl: string }) {
   const [state, action, pending] = useActionState(importFromUrlAction, undefined);
+  const [localError, setLocalError] = useState<string>();
+  const onSubmit = keepFormSubmit(
+    (fd) => {
+      setLocalError(undefined);
+      action(fd);
+    },
+    { requireCategory: setLocalError },
+  );
 
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-4">
       <label className="block">
         <span className="mb-1.5 block text-sm font-medium">Recipe link</span>
         <input
@@ -64,7 +74,8 @@ function LinkForm({ initialUrl }: { initialUrl: string }) {
       <p className="text-sm text-muted">
         We&apos;ll pull out the ingredients and steps, and credit the website with a link back.
       </p>
-      <ErrorText error={state?.error} />
+      <CategoryPicker />
+      <ErrorText error={localError ?? state?.error} />
       <button type="submit" disabled={pending} className="btn w-full">
         {pending ? "Reading the recipe…" : "Import recipe"}
       </button>
@@ -241,15 +252,21 @@ function PhotoImport({ enabled }: { enabled: boolean }) {
 
 function ManualForm({ draft, photos = [] }: { draft?: RecipeDraft; photos?: File[] }) {
   const [state, action, pending] = useActionState(createManualAction, undefined);
-
-  // Attach the card photos: they're kept with the recipe.
-  const submit = (formData: FormData) => {
-    photos.forEach((p) => formData.append("photo", p));
-    action(formData);
-  };
+  const [localError, setLocalError] = useState<string>();
+  const onSubmit = keepFormSubmit(
+    (fd) => {
+      setLocalError(undefined);
+      action(fd);
+    },
+    {
+      requireCategory: setLocalError,
+      // Attach the card photos: they're kept with the recipe.
+      extend: (fd) => photos.forEach((p) => fd.append("photo", p)),
+    },
+  );
 
   return (
-    <form action={submit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-4">
       <Field label="Recipe name">
         <input
           name="name"
@@ -316,13 +333,16 @@ function ManualForm({ draft, photos = [] }: { draft?: RecipeDraft; photos?: File
       <Field label="Website it came from" hint="optional">
         <input name="source" type="url" inputMode="url" className="field" placeholder="https://…" />
       </Field>
+      <CategoryPicker
+        defaultSelected={draft?.category && draft.category !== "None of these" ? [draft.category] : []}
+      />
       {photos.length > 0 && (
         <p className="text-sm text-muted">
           {photos.length === 1 ? "The photo" : photos.length === 2 ? "Both photos" : `All ${photos.length} photos`} will be kept with the
           recipe as the original card.
         </p>
       )}
-      <ErrorText error={state?.error} />
+      <ErrorText error={localError ?? state?.error} />
       <button type="submit" disabled={pending} className="btn w-full">
         {pending ? "Saving…" : "Save recipe"}
       </button>

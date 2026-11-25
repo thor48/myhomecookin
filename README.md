@@ -25,6 +25,12 @@ Phone ──https──▶ Cloudflare Tunnel ──▶ this app (Next.js, :3000)
     section (tap to enlarge), and the first is the recipe's picture until
     someone adds a photo of the dish. Needs `ANTHROPIC_API_KEY` (see below).
   - **Type it:** for family recipes.
+- **Categories:** Breakfast · Dinner / Mains · BBQ & Smokers · Sides &
+  Salads · Desserts & Baking (set in `src/lib/site.ts`, created in Mealie automatically the first
+  time an admin opens the app). Chips under the search bar filter the list and
+  combine with search and Most made. Picking one is the last step before
+  saving a website or typed recipe; for photo imports Claude pre-selects one.
+  Other Mealie categories on a recipe are left alone.
 - **🍳 From the kitchen:** a section at the bottom of each recipe. "I made
   this" logs who made it, when (can be backdated), a note and an optional
   photo; "Comment" is for questions and tips. Newest first; people can edit or

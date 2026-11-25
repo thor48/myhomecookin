@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { getFavoriteIds, listRecipes, madeCounts } from "@/lib/mealie";
+import { ensureCategories, getFavoriteIds, listRecipes, madeCounts } from "@/lib/mealie";
+import { CATEGORY_EMOJI, type CategoryName } from "@/lib/site";
 import { withMealie } from "@/lib/session";
 import { GridSkeleton, ListTabs, RecipeGrid } from "@/components/recipe-grid";
 
@@ -13,6 +14,9 @@ export default function RecipesPage({ searchParams }: PageProps<"/">) {
       <ListTabs current="all" />
       <Suspense fallback={<SearchBox />}>
         <SearchBoxWithQuery searchParams={searchParams} />
+      </Suspense>
+      <Suspense fallback={<div className="mb-4 h-[8.5rem] sm:h-16" />}>
+        <CategoryChips searchParams={searchParams} />
       </Suspense>
       <Suspense fallback={<GridSkeleton />}>
         <RecipeList searchParams={searchParams} />
@@ -49,13 +53,53 @@ async function Welcome({ searchParams }: { searchParams: SP }) {
   );
 }
 
-async function SearchBoxWithQuery({ searchParams }: { searchParams: SP }) {
-  return <SearchBox q={one((await searchParams).q)} />;
+/** Category buttons: 3 across on phones (2 rows), one row on wider screens. No sideways scrolling. */
+async function CategoryChips({ searchParams }: { searchParams: SP }) {
+  const sp = await searchParams;
+  const current = one(sp.cat);
+  const categories = await withMealie(ensureCategories);
+  const href = (cat?: string) =>
+    `/?${new URLSearchParams({
+      ...(one(sp.q) ? { q: one(sp.q)! } : {}),
+      ...(one(sp.sort) ? { sort: one(sp.sort)! } : {}),
+      ...(cat ? { cat } : {}),
+    })}`;
+  const button = (key: string, emoji: string, label: string, active: boolean, to: string) => (
+    <Link
+      key={key}
+      href={to}
+      aria-current={active ? "page" : undefined}
+      className={`flex min-h-16 flex-col items-center justify-center gap-0.5 rounded-xl border px-1.5 py-2 text-center text-[0.8rem] leading-tight transition active:scale-[0.97] ${
+        active
+          ? "border-accent bg-accent font-bold text-white shadow-card"
+          : "border-border bg-surface text-foreground hover:border-terracotta"
+      }`}
+    >
+      <span aria-hidden className="text-xl leading-none">
+        {emoji}
+      </span>
+      <span>{label}</span>
+    </Link>
+  );
+  return (
+    <nav aria-label="Categories" className="mb-4 grid auto-rows-fr grid-cols-3 gap-2 sm:grid-cols-6">
+      {button("all", "📖", "All", !current, href())}
+      {categories.map((c) =>
+        button(c.slug, CATEGORY_EMOJI[c.name as CategoryName] ?? "🍴", c.name, current === c.slug, href(c.slug)),
+      )}
+    </nav>
+  );
 }
 
-function SearchBox({ q }: { q?: string }) {
+async function SearchBoxWithQuery({ searchParams }: { searchParams: SP }) {
+  const sp = await searchParams;
+  return <SearchBox q={one(sp.q)} cat={one(sp.cat)} />;
+}
+
+function SearchBox({ q, cat }: { q?: string; cat?: string }) {
   return (
-    <form action="/" className="mb-5" role="search">
+    <form action="/" className="mb-3" role="search">
+      {cat && <input type="hidden" name="cat" value={cat} />}
       <input
         key={q}
         name="q"
@@ -73,11 +117,12 @@ async function RecipeList({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;
   const q = one(sp.q)?.trim();
   const byMade = one(sp.sort) === "made";
+  const cat = one(sp.cat);
   const page = byMade ? 1 : Math.max(1, Number(one(sp.page)) || 1);
   const [data, favorites, counts] = await withMealie((t) =>
     Promise.all([
       // "Most made" sorts the whole cookbook here, so fetch it all at once.
-      listRecipes(t, byMade ? { search: q, perPage: 1000 } : { search: q, page }),
+      listRecipes(t, byMade ? { search: q, category: cat, perPage: 1000 } : { search: q, category: cat, page }),
       getFavoriteIds(t),
       madeCounts(t),
     ]),
@@ -93,10 +138,14 @@ async function RecipeList({ searchParams }: { searchParams: SP }) {
     return (
       <div className="rounded-xl border border-dashed border-border px-6 py-16 text-center">
         <p className="font-serif text-xl">
-          {q ? `Nothing matches “${q}”.` : "The cookbook is empty."}
+          {q ? `Nothing matches “${q}”.` : cat ? "No recipes in this category yet." : "The cookbook is empty."}
         </p>
         <p className="mt-2 text-muted">
-          {q ? "Try a different word." : "Add the first recipe from a link or type one in."}
+          {q
+            ? "Try a different word."
+            : cat
+              ? "Pick a category when you add or edit a recipe and it will show up here."
+              : "Add the first recipe from a link or type one in."}
         </p>
         <Link href="/add" className="btn mt-6">
           + Add a recipe
@@ -105,9 +154,9 @@ async function RecipeList({ searchParams }: { searchParams: SP }) {
     );
   }
 
-  const href = (p: number) => `/?${new URLSearchParams({ ...(q ? { q } : {}), page: String(p) })}`;
-  const sortHref = (made: boolean) =>
-    `/?${new URLSearchParams({ ...(q ? { q } : {}), ...(made ? { sort: "made" } : {}) })}`;
+  const keep = { ...(q ? { q } : {}), ...(cat ? { cat } : {}) };
+  const href = (p: number) => `/?${new URLSearchParams({ ...keep, page: String(p) })}`;
+  const sortHref = (made: boolean) => `/?${new URLSearchParams({ ...keep, ...(made ? { sort: "made" } : {}) })}`;
 
   return (
     <>

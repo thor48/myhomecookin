@@ -41,3 +41,21 @@ export function niceAmount(text: string): string {
     return String(Math.round(value * 100) / 100);
   });
 }
+
+/** Top-level categories shown as chips by the search bar (created in Mealie on first use). */
+export const CATEGORIES = [
+  "Breakfast",
+  "Dinner / Mains",
+  "BBQ & Smokers",
+  "Sides & Salads",
+  "Desserts & Baking",
+] as const;
+export type CategoryName = (typeof CATEGORIES)[number];
+
+export const CATEGORY_EMOJI: Record<CategoryName, string> = {
+  Breakfast: "🥞",
+  "Dinner / Mains": "🍽️",
+  "BBQ & Smokers": "🔥",
+  "Sides & Salads": "🥗",
+  "Desserts & Baking": "🍰",
+};

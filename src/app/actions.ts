@@ -24,6 +24,9 @@ import {
   recipeAccess,
   registerWithInvite,
   setFavorite,
+  ensureCategories,
+  pickCategories,
+  setRecipeCategories,
   addComment,
   addMadeEntry,
   deleteComment,
@@ -100,6 +103,7 @@ export async function importFromUrlAction(
   formData: FormData,
 ): Promise<FormState> {
   const raw = String(formData.get("url") ?? "").trim();
+  const categories = formData.getAll("category").map(String);
   let url: URL;
   try {
     url = new URL(raw);
@@ -107,6 +111,7 @@ export async function importFromUrlAction(
   } catch {
     return { error: "That doesn't look like a web address. Copy the link from your browser." };
   }
+  if (categories.length === 0) return { error: "Pick a category for this recipe." };
 
   const token = await requireToken();
   let slug: string;
@@ -114,6 +119,7 @@ export async function importFromUrlAction(
     const existing = await findByOriginalUrl(token, url.href);
     if (existing) redirect(`/recipes/${existing.slug}?duplicate=1`);
     slug = await createFromUrl(token, url.href);
+    await setRecipeCategories(token, slug, categories);
   } catch (e) {
     if (e instanceof MealieAuthError) redirect("/logout?expired=1");
     if (e instanceof MealieError) {
@@ -175,11 +181,15 @@ export async function createManualAction(
   if (source && !/^https?:\/\//.test(source)) {
     return { error: "The source link should start with http:// or https://" };
   }
+  const categoryNames = formData.getAll("category").map(String);
+  if (categoryNames.length === 0) return { error: "Pick a category for this recipe." };
 
   const token = await requireToken();
   let slug: string;
   try {
+    const categories = pickCategories(await ensureCategories(token), categoryNames);
     slug = await createManual(token, {
+      categories,
       name,
       description: String(formData.get("description") ?? "").trim(),
       recipeYield: String(formData.get("yield") ?? "").trim(),
@@ -484,6 +494,8 @@ export async function updateRecipeAction(_prev: EditState, formData: FormData): 
       return { error: "You can only edit recipes you added." };
     }
     const before = editableText(recipe);
+    const allCategories = await ensureCategories(token);
+    const ours = new Set(allCategories.map((c) => c.id));
     const field = (k: string) => String(formData.get(k) ?? "").trim();
     const yieldText = field("yield");
     const notes = field("notes");
@@ -496,6 +508,10 @@ export async function updateRecipeAction(_prev: EditState, formData: FormData): 
       totalTime: field("time") || null,
       orgURL: source || null,
       extras: { ...(recipe.extras ?? {}), source_credit: credit },
+      recipeCategory: [
+        ...(recipe.recipeCategory ?? []).filter((c) => !ours.has(c.id)),
+        ...pickCategories(allCategories, formData.getAll("category").map(String)),
+      ],
       recipeIngredient: keepUnchanged<Ingredient>(
         ingredients,
         recipe.recipeIngredient,

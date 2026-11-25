@@ -2,6 +2,8 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { deleteRecipeAction, updateRecipeAction } from "../../../../actions";
+import { CategoryPicker } from "@/components/category-picker";
+import { keepFormSubmit } from "@/lib/keep-form";
 
 type Initial = {
   name: string;
@@ -13,13 +15,16 @@ type Initial = {
   notes: string;
   credit: string;
   source: string;
+  categories: string[];
 };
 
 export function EditForm({ slug, initial }: { slug: string; initial: Initial }) {
   const [state, action, pending] = useActionState(updateRecipeAction, undefined);
+  // Keeps your edits if the server sends back an error.
+  const onSubmit = keepFormSubmit(action);
 
   return (
-    <form action={action} className="mt-6 space-y-4">
+    <form onSubmit={onSubmit} className="mt-6 space-y-4">
       <input type="hidden" name="slug" value={slug} />
       <Field label="Recipe name">
         <input name="name" required defaultValue={initial.name} className="field" />
@@ -67,6 +72,7 @@ export function EditForm({ slug, initial }: { slug: string; initial: Initial }) 
       <Field label="Website it came from" hint="optional">
         <input name="source" type="url" inputMode="url" defaultValue={initial.source} className="field" />
       </Field>
+      <CategoryPicker defaultSelected={initial.categories} />
       {state?.error && (
         <p role="alert" className="text-sm text-danger">
           {state.error}

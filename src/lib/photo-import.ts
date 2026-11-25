@@ -2,6 +2,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
+import { CATEGORIES } from "./site";
 
 /**
  * Reads recipe photos (cards, cookbook pages, screenshots) with Claude and
@@ -41,6 +42,9 @@ const RecipeDraftSchema = z.object({
   unclear: z
     .array(z.string())
     .describe("Words or amounts you could not read with confidence, quoted as you read them"),
+  category: z
+    .enum([...CATEGORIES, "None of these"])
+    .describe("The best-fitting category for this recipe"),
   continues_elsewhere: z
     .boolean()
     .describe(

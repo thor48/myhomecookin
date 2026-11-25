@@ -1,4 +1,5 @@
 import "server-only";
+import { CATEGORIES } from "./site";
 
 /**
  * Thin client for the Mealie REST API (written against Mealie v2.x).
@@ -217,7 +218,7 @@ export async function registerWithInvite(input: {
 
 export function listRecipes(
   token: string,
-  opts: { search?: string; page?: number; perPage?: number; queryFilter?: string } = {},
+  opts: { search?: string; page?: number; perPage?: number; queryFilter?: string; category?: string } = {},
 ) {
   const params = new URLSearchParams({
     page: String(opts.page ?? 1),
@@ -227,7 +228,49 @@ export function listRecipes(
   });
   if (opts.search) params.set("search", opts.search);
   if (opts.queryFilter) params.set("queryFilter", opts.queryFilter);
+  if (opts.category) params.set("categories", opts.category);
   return json<Paginated<RecipeSummary>>(`/api/recipes?${params}`, token);
+}
+
+// ---------------------------------------------------------------------------
+// Categories
+// ---------------------------------------------------------------------------
+
+/**
+ * The app's top-level categories as they exist in Mealie, in display order.
+ * Missing ones are created (only works for accounts allowed to organize, e.g.
+ * admins; for others the missing ones are just left out until an admin visits).
+ */
+export async function ensureCategories(token: string): Promise<Tag[]> {
+  const list = async () =>
+    (await json<Paginated<Tag>>("/api/organizers/categories?perPage=-1", token)).items;
+  const existing = await list();
+  const find = (name: string) => existing.find((c) => c.name.toLowerCase() === name.toLowerCase());
+  for (const name of CATEGORIES.filter((n) => !find(n))) {
+    try {
+      // Use what Mealie returns: re-reading the list right away can miss new ones.
+      existing.push(await json<Tag>("/api/organizers/categories", token, { method: "POST", ...jsonBody({ name }) }));
+    } catch (e) {
+      if (e instanceof MealieAuthError) throw e; // 403 (not allowed) or 409 (exists): fine
+      if (e instanceof MealieError && e.status === 409) existing.push(...(await list()).filter((c) => !find(c.name)));
+    }
+  }
+  return CATEGORIES.map(find).filter((c): c is Tag => Boolean(c));
+}
+
+/** Turn chosen category names into Mealie category objects (app categories only). */
+export function pickCategories(all: Tag[], names: string[]) {
+  const wanted = new Set(names.map((n) => n.toLowerCase()));
+  return all.filter((c) => wanted.has(c.name.toLowerCase())).map(({ id, name, slug }) => ({ id, name, slug }));
+}
+
+/** Set a recipe's app categories, keeping any other categories it already has. */
+export async function setRecipeCategories(token: string, slug: string, names: string[]) {
+  const [recipe, all] = await Promise.all([getRecipe(token, slug), ensureCategories(token)]);
+  const ours = new Set(all.map((c) => c.id));
+  const others = (recipe.recipeCategory ?? []).filter((c) => !ours.has(c.id));
+  recipe.recipeCategory = [...others, ...pickCategories(all, names)];
+  await updateRecipe(token, slug, recipe);
 }
 
 // ---------------------------------------------------------------------------
@@ -332,6 +375,7 @@ export type ManualRecipeInput = {
   /** Text credit for non-website sources: "Aunt Mary", "Joy of Cooking, p. 212". */
   sourceCredit?: string;
   notes?: string;
+  categories?: Tag[];
 };
 
 /** Create a recipe typed in by hand. Returns its slug. */
@@ -351,6 +395,7 @@ export async function createManual(token: string, input: ManualRecipeInput) {
     orgURL: input.orgURL || null,
     extras: { ...(recipe.extras ?? {}), ...(input.sourceCredit ? { source_credit: input.sourceCredit } : {}) },
     notes: input.notes ? [{ title: "", text: input.notes }] : [],
+    recipeCategory: input.categories ?? recipe.recipeCategory ?? [],
     recipeIngredient: input.ingredients.map((line) => ({
       note: line,
       display: line,

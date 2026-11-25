@@ -1,6 +1,6 @@
 import "server-only";
 import { describeYield, type Recipe } from "./mealie";
-import { niceAmount, sourceCredit } from "./site";
+import { CATEGORIES, niceAmount, sourceCredit } from "./site";
 
 /** The text the edit form shows for each part of a recipe (also used to spot changes). */
 export function editableText(recipe: Recipe) {
@@ -14,6 +14,10 @@ export function editableText(recipe: Recipe) {
     notes: (recipe.notes ?? []).map((n) => (n.title ? `${n.title}: ${n.text}` : n.text)).join("\n\n"),
     credit: sourceCredit(recipe.extras) ?? "",
     source: recipe.orgURL ?? "",
+    // Only the app's top-level categories are edited here; others are kept as they are.
+    categories: (recipe.recipeCategory ?? [])
+      .map((c) => c.name)
+      .filter((n) => (CATEGORIES as readonly string[]).some((k) => k.toLowerCase() === n.toLowerCase())),
   };
 }
 
