@@ -16,6 +16,10 @@ ARG NEXT_PUBLIC_SITE_NAME="My Home Cookin'"
 ARG NEXT_PUBLIC_SITE_SHORT_NAME="Home Cookin'"
 ENV NEXT_PUBLIC_SITE_NAME=$NEXT_PUBLIC_SITE_NAME \
     NEXT_PUBLIC_SITE_SHORT_NAME=$NEXT_PUBLIC_SITE_SHORT_NAME
+# Identifies this release so pages left open from an older one reload
+# (see deploymentId in next.config.ts). The workflow passes the commit.
+ARG DEPLOYMENT_ID=""
+ENV DEPLOYMENT_ID=$DEPLOYMENT_ID
 RUN npm run build
 
 FROM node:24-alpine AS run

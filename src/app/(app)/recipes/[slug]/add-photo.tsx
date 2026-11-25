@@ -1,22 +1,17 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { unstable_rethrow, useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import { shrinkPhoto } from "@/lib/shrink-photo";
 import { addRecipePhotoAction } from "../../../actions";
+import { RELOAD_MESSAGE } from "./edit/photo-picker";
 
 /** "Add a photo of the dish" / "Add a card photo" buttons on a recipe page. */
 export function AddPhoto({ slug }: { slug: string }) {
   const router = useRouter();
-  const [state, action, saving] = useActionState(addRecipePhotoAction, undefined);
   const [preparing, setPreparing] = useState(false);
   const [error, setError] = useState<string>();
-  const [, startTransition] = useTransition();
-
-  // Show the new photo once it's saved.
-  useEffect(() => {
-    if (state?.done) router.refresh();
-  }, [state?.done, router]);
+  const [saving, start] = useTransition();
 
   async function upload(kind: "dish" | "card", file?: File) {
     if (!file) return;
@@ -35,12 +30,21 @@ export function AddPhoto({ slug }: { slug: string }) {
     form.set("slug", slug);
     form.set("kind", kind);
     form.set("photo", photo);
-    startTransition(() => action(form));
+    start(async () => {
+      try {
+        const result = await addRecipePhotoAction(undefined, form);
+        if (result?.error) setError(result.error);
+        // Show the new photo once it's saved.
+        else router.refresh();
+      } catch (e) {
+        unstable_rethrow(e); // let a redirect (e.g. signed out) through
+        // e.g. the site was updated while this page was open
+        setError(RELOAD_MESSAGE);
+      }
+    });
   }
 
   const busy = preparing || saving;
-  const shown = error ?? state?.error;
-
   return (
     <div className="mt-3">
       <div className="flex flex-wrap gap-2">
@@ -51,9 +55,9 @@ export function AddPhoto({ slug }: { slug: string }) {
         />
         <PhotoButton label="🗂️ Add a card photo" disabled={busy} onPick={(f) => upload("card", f)} />
       </div>
-      {shown && (
+      {error && (
         <p role="alert" className="mt-2 text-sm text-danger">
-          {shown}
+          {error}
         </p>
       )}
     </div>

@@ -1,9 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { unstable_rethrow, useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 import { shrinkPhoto } from "@/lib/shrink-photo";
 import { addRecipePhotoAction, removeDishPhotoAction, setFeaturedPhotoAction } from "../../../../actions";
+
+/** Shown when the server can't be reached, or the site was updated while this page was open. */
+export const RELOAD_MESSAGE = "Couldn't save that. Reload the page and try again.";
 
 export type PhotoChoice = {
   /** "dish:<file>", "card:<file>" or "made:<entryId>" */
@@ -33,17 +36,27 @@ export function PhotoPicker({
   choices: PhotoChoice[];
 }) {
   const router = useRouter();
-  const [state, upload, uploading] = useActionState(addRecipePhotoAction, undefined);
   const [preparing, setPreparing] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [choosing, setChoosing] = useState<string>();
   const [confirmRemove, setConfirmRemove] = useState<string>();
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
 
-  // Show the new photo once it's saved.
-  useEffect(() => {
-    if (state?.done) router.refresh();
-  }, [state?.done, router]);
+  /** Call a server action, then show the result. A failed call shows a message, never a blank page. */
+  function run(call: () => Promise<{ error?: string } | undefined>, after?: () => void) {
+    start(async () => {
+      try {
+        const result = await call();
+        if (result?.error) setError(result.error);
+      } catch (e) {
+        unstable_rethrow(e); // let a redirect (e.g. signed out) through
+        setError(RELOAD_MESSAGE);
+      }
+      after?.();
+      router.refresh();
+    });
+  }
 
   async function addDishPhoto(file?: File) {
     if (!file) return;
@@ -62,34 +75,28 @@ export function PhotoPicker({
     form.set("slug", slug);
     form.set("kind", "dish");
     form.set("photo", photo);
-    start(() => upload(form));
+    setUploading(true);
+    run(() => addRecipePhotoAction(undefined, form), () => setUploading(false));
   }
 
   function choose(key: string) {
     if (key === featured || busy) return;
     setError(undefined);
     setChoosing(key);
-    start(async () => {
-      const result = await setFeaturedPhotoAction(slug, key);
-      if (result.error) setError(result.error);
-      router.refresh();
-    });
+    run(() => setFeaturedPhotoAction(slug, key));
   }
 
   function remove(key: string) {
     if (confirmRemove !== key) return setConfirmRemove(key);
     setError(undefined);
     setChoosing(key);
-    start(async () => {
-      const result = await removeDishPhotoAction(slug, key.slice("dish:".length));
-      if (result.error) setError(result.error);
-      setConfirmRemove(undefined);
-      router.refresh();
-    });
+    run(
+      () => removeDishPhotoAction(slug, key.slice("dish:".length)),
+      () => setConfirmRemove(undefined),
+    );
   }
 
-  const busy = preparing || uploading || pending;
-  const shown = error ?? state?.error;
+  const busy = preparing || pending;
   // When the current picture isn't one of the choices (an older recipe), show it too.
   const unknownCurrent = current && !choices.some((c) => c.key === featured);
 
@@ -131,9 +138,9 @@ export function PhotoPicker({
       </label>
       <p className="mt-1.5 text-center text-xs text-muted">A new dish photo becomes the featured photo.</p>
 
-      {shown && (
+      {error && (
         <p role="alert" className="mt-2 text-sm text-danger">
-          {shown}
+          {error}
         </p>
       )}
 
