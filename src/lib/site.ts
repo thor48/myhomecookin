@@ -59,3 +59,11 @@ export const CATEGORY_EMOJI: Record<CategoryName, string> = {
   "Sides & Salads": "🥗",
   "Desserts & Baking": "🍰",
 };
+
+/** Page background photo (free under the Unsplash License; credited in the footer). */
+export const BACKGROUND_PHOTO = {
+  photographer: "Or Hakim",
+  profileUrl: "https://unsplash.com/@orhakim?utm_source=my_home_cookin&utm_medium=referral",
+  photoUrl:
+    "https://unsplash.com/photos/a-person-cutting-up-vegetables-on-a-cutting-board-S2Eql9vHN3o?utm_source=my_home_cookin&utm_medium=referral",
+};

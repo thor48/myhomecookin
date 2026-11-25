@@ -136,7 +136,7 @@ async function RecipeList({ searchParams }: { searchParams: SP }) {
 
   if (data.items.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-border px-6 py-16 text-center">
+      <div className="rounded-xl border border-dashed border-border bg-background/85 px-6 py-16 text-center">
         <p className="font-serif text-xl">
           {q ? `Nothing matches “${q}”.` : cat ? "No recipes in this category yet." : "The cookbook is empty."}
         </p>

@@ -70,7 +70,7 @@ async function MyLists() {
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mt-2 rounded-xl border border-dashed border-border px-4 py-6 text-center text-muted">
+    <p className="mt-2 rounded-xl border border-dashed border-border bg-background/85 px-4 py-6 text-center text-muted">
       {children}
     </p>
   );

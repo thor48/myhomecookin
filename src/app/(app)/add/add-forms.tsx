@@ -106,7 +106,7 @@ function PhotoImport({ enabled }: { enabled: boolean }) {
 
   if (!enabled) {
     return (
-      <p className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-muted">
+      <p className="rounded-xl border border-dashed border-border bg-background/85 px-4 py-6 text-center text-muted">
         Photo import isn&apos;t switched on yet. Whoever runs the cookbook needs to add an AI key
         to the server.
       </p>

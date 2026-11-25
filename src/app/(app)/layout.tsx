@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { SITE_NAME } from "@/lib/site";
+import { BACKGROUND_PHOTO, SITE_NAME } from "@/lib/site";
 
 export default function AppLayout({ children }: LayoutProps<"/">) {
   return (
@@ -22,19 +22,51 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
           </a>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 pb-8">{children}</main>
-      <footer className="border-t border-border pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
-        <nav className="mx-auto flex max-w-5xl items-center justify-center gap-6 px-4 pt-5 text-sm">
-          <Link href="/my-recipes" className="font-bold text-link underline-offset-2 hover:underline">
-            ♥ My Recipes
-          </Link>
-          <Link href="/invite" className="text-muted hover:text-foreground">
-            Invite family
-          </Link>
-          <Link href="/add" className="text-muted hover:text-foreground">
-            Add a recipe
-          </Link>
-        </nav>
+      {/*
+        The page area: background photo anchored to its bottom, fading up to
+        transparent. The main area keeps empty space at the bottom where the
+        photo shows at full strength, so text only overlaps the faded part.
+      */}
+      <div className="relative isolate flex flex-1 flex-col">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-[62vh] max-h-[42rem] [mask-image:linear-gradient(to_top,rgb(0_0_0/0.95)_0%,rgb(0_0_0/0.8)_25%,rgb(0_0_0/0.3)_55%,transparent_100%)]"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- static photo with srcset */}
+          <img
+            src="/brand/page-bg-1000.webp"
+            srcSet="/brand/page-bg-1000.webp 1000w, /brand/page-bg-2000.webp 2000w"
+            sizes="100vw"
+            alt=""
+            className="size-full object-cover object-[center_60%]"
+          />
+        </div>
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 pb-[min(32vh,17rem)]">{children}</main>
+      </div>
+      <footer className="bg-[var(--deep-brown)] text-[#f8f1e9]">
+        <div className="mx-auto max-w-5xl px-4 pt-6 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
+          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
+            <Link href="/my-recipes" className="font-bold underline-offset-2 hover:underline">
+              ♥ My Recipes
+            </Link>
+            <Link href="/invite" className="underline-offset-2 opacity-90 hover:underline hover:opacity-100">
+              Invite family
+            </Link>
+            <Link href="/add" className="underline-offset-2 opacity-90 hover:underline hover:opacity-100">
+              Add a recipe
+            </Link>
+          </nav>
+          <p className="mt-4 text-center text-xs opacity-75">
+            Background photo by{" "}
+            <a href={BACKGROUND_PHOTO.profileUrl} target="_blank" rel="noopener" className="underline underline-offset-2">
+              {BACKGROUND_PHOTO.photographer}
+            </a>{" "}
+            on{" "}
+            <a href={BACKGROUND_PHOTO.photoUrl} target="_blank" rel="noopener" className="underline underline-offset-2">
+              Unsplash
+            </a>
+          </p>
+        </div>
       </footer>
     </div>
   );

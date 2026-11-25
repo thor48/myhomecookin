@@ -208,7 +208,7 @@ export function KitchenFeed({ items }: { items: FeedItem[] }) {
 
   if (items.length === 0) {
     return (
-      <p className="mt-5 rounded-xl border border-dashed border-border px-4 py-6 text-center text-muted">
+      <p className="mt-5 rounded-xl border border-dashed border-border bg-background/85 px-4 py-6 text-center text-muted">
         Made this? Tap &ldquo;I made this&rdquo; to add it here, with a photo if you like.
       </p>
     );
