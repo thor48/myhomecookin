@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { BottomTabBar, BottomTabs, TopNav, TopNavLinks } from "@/components/app-nav";
 import { AnimatedMark } from "@/components/animated-mark";
-import { ContactKnife } from "@/components/contact-knife";
+import { ContactKnife, ContactLink } from "@/components/contact-knife";
 import { InstallButton, ServiceWorker } from "@/components/pwa";
 import { BACKGROUND_PHOTO, SITE_NAME } from "@/lib/site";
 
@@ -22,6 +22,8 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
           <Suspense fallback={<TopNavLinks path="" />}>
             <TopNav />
           </Suspense>
+          {/* Phones: the header has room now that the links live in the bottom tab bar. */}
+          <ContactLink className="sm:hidden" />
         </div>
       </header>
       {/*

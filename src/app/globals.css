@@ -308,6 +308,19 @@ html[data-signing-in] .login-logo {
   pointer-events: auto;
 }
 
+/* Phones: no knife (the header has a Contact link); the block drops in just under the header. */
+@media (max-width: 39.99rem) {
+  .contact-knife,
+  .contact-slot {
+    display: none;
+  }
+  .contact-panel {
+    top: calc(env(safe-area-inset-top) + 5.25rem);
+    width: calc(100vw - 1.5rem);
+    padding-top: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .contact-panel,
   .contact-panel[data-open],

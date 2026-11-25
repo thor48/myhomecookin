@@ -7,6 +7,22 @@ import { safeFormAction } from "@/lib/safe-action";
 
 const sendSafely = safeFormAction(contactAction, { minMs: 500 });
 
+/** Opens the contact form from elsewhere on the page (the phone header link). */
+const OPEN_EVENT = "contact:open";
+
+/** Phones: a small "Contact" link in the header instead of the knife. */
+export function ContactLink({ className = "" }: { className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))}
+      className={`rounded-lg px-2 py-1.5 text-sm font-bold text-link transition hover:bg-accent-soft active:scale-[0.98] ${className}`}
+    >
+      Contact
+    </button>
+  );
+}
+
 const KINDS = [
   { value: "bug", label: "Bug", icon: "🐞" },
   { value: "idea", label: "Idea", icon: "💡" },
@@ -17,6 +33,7 @@ const KINDS = [
  * of the blade stick out from the edge of the screen. Pressing it slides in a
  * butcher block with the knife stuck in its top and a bug / idea form inside.
  * Who sent it comes from the signed-in account, so there's nothing else to fill in.
+ * Phones don't show the knife: the header's ContactLink opens the block instead.
  * Layout and motion live in globals.css (.contact-*).
  */
 export function ContactKnife() {
@@ -43,6 +60,12 @@ export function ContactKnife() {
       clearTimeout(reset);
     };
   }, [sentAt]);
+
+  useEffect(() => {
+    const show = () => setOpen(true);
+    window.addEventListener(OPEN_EVENT, show);
+    return () => window.removeEventListener(OPEN_EVENT, show);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
