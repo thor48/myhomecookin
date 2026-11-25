@@ -6,7 +6,9 @@ import { after } from "next/server";
 import {
   accountAlertsEnabled,
   notifyJoinRequest,
+  notifyFeedback,
   notifyNewRecipe,
+  type FeedbackKind,
   notifyRequestApproved,
 } from "@/lib/discord";
 import {
@@ -772,4 +774,49 @@ export async function removeKitchenItemAction(kind: "made" | "comment", id: stri
     return { error: message(e) };
   }
   return {};
+}
+
+// ---------------------------------------------------------------------------
+// Contact knife: bugs and ideas → the account Discord channel
+
+export type ContactState = { error?: string; sent?: number } | undefined;
+
+// A few messages per cook per hour (resets when the app restarts).
+const recentContacts = new Map<string, number[]>();
+
+/** Who sent it comes from the session, never from the form. */
+export async function contactAction(_prev: ContactState, formData: FormData): Promise<ContactState> {
+  const kind = String(formData.get("kind") ?? "");
+  const text = String(formData.get("message") ?? "").trim().slice(0, 2000);
+  const page = String(formData.get("page") ?? "/");
+  if (kind !== "bug" && kind !== "idea") return { error: "Pick Bug or Idea." };
+  if (!text) return { error: "Write a few words first." };
+  if (!accountAlertsEnabled()) return { error: "Messages aren't switched on yet. Ask whoever runs the cookbook directly." };
+
+  const token = await requireToken();
+  let self;
+  try {
+    self = await getSelf(token);
+  } catch (e) {
+    if (e instanceof MealieAuthError) redirect("/logout?expired=1");
+    return { error: message(e) };
+  }
+
+  const hour = 60 * 60 * 1000;
+  const now = Date.now();
+  const times = (recentContacts.get(self.id) ?? []).filter((t) => now - t < hour);
+  if (times.length >= 10) return { error: "That's a lot of messages this hour. Try again a bit later." };
+  recentContacts.set(self.id, [...times, now]);
+
+  const sent = await notifyFeedback({
+    kind: kind as FeedbackKind,
+    message: text,
+    name: self.fullName || self.username,
+    email: self.email,
+    // Same-site path only, so the link in Discord always points here.
+    page: page.startsWith("/") && !page.startsWith("//") ? page.slice(0, 300) : "/",
+    siteOrigin: await siteOrigin(),
+  });
+  if (!sent) return { error: "Couldn't send that just now. Please try again in a bit." };
+  return { sent: now };
 }

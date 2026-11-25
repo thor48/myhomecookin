@@ -7,7 +7,8 @@ import { SITE_NAME, sourceHost } from "./site";
  * Webhook URLs are secrets (anyone with one can post to the channel): they
  * live only in environment variables, never in the repo.
  *   DISCORD_WEBHOOK_RECIPES — new recipe added
- *   DISCORD_WEBHOOK_ACCOUNT — someone asked to join / a request was approved
+ *   DISCORD_WEBHOOK_ACCOUNT — someone asked to join / a request was approved /
+ *                             a cook sent a bug or idea from the Contact knife
  */
 
 const TERRACOTTA = 0xc17f59;
@@ -115,6 +116,39 @@ export function notifyRequestApproved(input: { name: string; approvedBy: string;
       description: `Invite made by ${input.approvedBy}.`.slice(0, 4096),
       color: 0x8a9a7b, // sage
       footer: { text: "Join request" },
+    },
+    input.siteOrigin,
+  );
+}
+
+const FEEDBACK_KIND = {
+  bug: { title: "🐞 Bug report", color: 0xd97b6c }, // soft coral
+  idea: { title: "💡 Idea", color: 0x8a9a7b }, // sage
+} as const;
+export type FeedbackKind = keyof typeof FEEDBACK_KIND;
+
+/** A signed-in cook sent a bug or idea from the Contact knife. Returns whether Discord accepted it. */
+export function notifyFeedback(input: {
+  kind: FeedbackKind;
+  message: string;
+  name: string;
+  email: string;
+  page: string;
+  siteOrigin: string;
+}) {
+  const kind = FEEDBACK_KIND[input.kind];
+  return post(
+    process.env.DISCORD_WEBHOOK_ACCOUNT,
+    {
+      title: `${kind.title} from ${input.name}`.slice(0, 256),
+      description: input.message.slice(0, 4096),
+      color: kind.color,
+      fields: [
+        { name: "From", value: input.name.slice(0, 1024), inline: true },
+        { name: "Email", value: input.email.slice(0, 1024), inline: true },
+        { name: "Page", value: `${input.siteOrigin}${input.page}`.slice(0, 1024) },
+      ],
+      footer: { text: "Contact form" },
     },
     input.siteOrigin,
   );

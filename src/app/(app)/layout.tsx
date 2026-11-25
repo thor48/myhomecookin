@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { BottomTabBar, BottomTabs, TopNav, TopNavLinks } from "@/components/app-nav";
 import { AnimatedMark } from "@/components/animated-mark";
+import { ContactKnife } from "@/components/contact-knife";
 import { BACKGROUND_PHOTO, SITE_NAME } from "@/lib/site";
 
 export default function AppLayout({ children }: LayoutProps<"/">) {
@@ -61,6 +62,8 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
       <Suspense fallback={<BottomTabs path="" />}>
         <BottomTabBar />
       </Suspense>
+      {/* Bug / idea form, sent to the account Discord channel */}
+      <ContactKnife />
     </div>
   );
 }
