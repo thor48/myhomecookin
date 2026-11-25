@@ -16,6 +16,7 @@ import {
   login,
   MealieAuthError,
   cardAssets,
+  dishAssets,
   createInvite,
   deleteRecipe,
   getRecipe,
@@ -41,6 +42,13 @@ import {
   setRecipeImage,
   updateRecipe,
   uploadCardPhoto,
+  uploadDishPhoto,
+  removeDishPhoto,
+  featuredPhoto,
+  saveFeaturedPhoto,
+  fetchRecipeAsset,
+  fetchRecipeImage,
+  fetchMadeEntryImage,
   type Ingredient,
   type Instruction,
   type Recipe,
@@ -215,11 +223,18 @@ export async function createManualAction(
   if (photos.length > 0 || dishPhoto) {
     try {
       // A dish photo is the main picture; otherwise the front of the card is.
+      let featured: string | null = null;
+      if (dishPhoto) {
+        const asset = await uploadDishPhoto(token, slug, dishPhoto, extensionOf(dishPhoto));
+        featured = `dish:${asset.fileName}`;
+      }
+      for (const [i, p] of photos.entries()) {
+        const asset = await uploadCardPhoto(token, slug, p, extensionOf(p), i + 1);
+        featured ??= `card:${asset.fileName}`;
+      }
       const main = dishPhoto ?? photos[0];
       await setRecipeImage(token, slug, main, extensionOf(main));
-      for (const [i, p] of photos.entries()) {
-        await uploadCardPhoto(token, slug, p, extensionOf(p), i + 1);
-      }
+      if (featured) await saveFeaturedPhoto(token, slug, featured);
     } catch (e) {
       console.error("Saving recipe photos failed:", e);
     }
@@ -302,12 +317,20 @@ export async function addRecipePhotoAction(
   const token = await requireToken();
   try {
     const recipe = await getRecipe(token, slug);
+    const extension = extensionOf(photo);
     if (kind === "dish") {
-      await setRecipeImage(token, slug, photo, extensionOf(photo));
+      // Kept with the recipe's dish photos and made the featured picture.
+      await keepEarlierPicture(token, recipe);
+      const asset = await uploadDishPhoto(token, slug, photo, extension);
+      await setRecipeImage(token, slug, photo, extension);
+      await saveFeaturedPhoto(token, slug, `dish:${asset.fileName}`);
     } else {
-      await uploadCardPhoto(token, slug, photo, extensionOf(photo), cardAssets(recipe).length + 1);
+      const asset = await uploadCardPhoto(token, slug, photo, extension, cardAssets(recipe).length + 1);
       // A recipe with no picture yet shows the card until a dish photo is added.
-      if (!recipe.image) await setRecipeImage(token, slug, photo, extensionOf(photo));
+      if (!recipe.image) {
+        await setRecipeImage(token, slug, photo, extension);
+        await saveFeaturedPhoto(token, slug, `card:${asset.fileName}`);
+      }
     }
   } catch (e) {
     if (e instanceof MealieAuthError) redirect("/logout?expired=1");
@@ -317,6 +340,83 @@ export async function addRecipePhotoAction(
     return { error: message(e) };
   }
   return { done: Date.now() };
+}
+
+/** Remove a dish photo. Not the featured one: feature another photo first. */
+export async function removeDishPhotoAction(slug: string, fileName: string): Promise<{ error?: string }> {
+  const token = await requireToken();
+  try {
+    const [recipe, self] = await Promise.all([getRecipe(token, slug), getSelf(token)]);
+    if (!recipeAccess(self, recipe).canEdit) return { error: "You can only change recipes you added." };
+    if (featuredPhoto(recipe) === `dish:${fileName}`) {
+      return { error: "That's the featured photo. Feature a different one first." };
+    }
+    if (!dishAssets(recipe).some((a) => a.fileName === fileName)) return {};
+    await removeDishPhoto(token, slug, fileName);
+  } catch (e) {
+    if (e instanceof MealieAuthError) redirect("/logout?expired=1");
+    return { error: message(e) };
+  }
+  return {};
+}
+
+/**
+ * Recipes from before photos were kept have a main picture stored nowhere
+ * else, so replacing it would lose it. Keep it as a dish photo first.
+ */
+async function keepEarlierPicture(token: string, recipe: Recipe) {
+  if (!recipe.image || featuredPhoto(recipe)) return;
+  const current = await fetchRecipeImage(token, recipe.id, "original");
+  const asset = await uploadDishPhoto(token, recipe.slug, await current.blob(), "webp");
+  await saveFeaturedPhoto(token, recipe.slug, `dish:${asset.fileName}`);
+}
+
+/**
+ * Make one of the recipe's photos its featured (main) picture: a dish photo
+ * ("dish:<file>"), a card photo ("card:<file>") or an "I made this" photo
+ * ("made:<entryId>"). Only whoever added the recipe, or an admin.
+ */
+export async function setFeaturedPhotoAction(slug: string, key: string): Promise<{ error?: string }> {
+  const token = await requireToken();
+  try {
+    const [recipe, self] = await Promise.all([getRecipe(token, slug), getSelf(token)]);
+    if (!recipeAccess(self, recipe).canEdit) return { error: "You can only change recipes you added." };
+    if (featuredPhoto(recipe) === key) return {};
+
+    const split = key.indexOf(":");
+    const kind = key.slice(0, split);
+    const id = key.slice(split + 1);
+    const gone = { error: "That photo isn't on this recipe any more. Reload the page." };
+    let source: Response;
+    if (kind === "dish" || kind === "card") {
+      const ours = kind === "dish" ? dishAssets(recipe) : cardAssets(recipe);
+      if (!ours.some((a) => a.fileName === id)) return gone;
+      source = await fetchRecipeAsset(token, recipe.id, id);
+    } else if (kind === "made") {
+      const entry = await getMadeEntry(token, id);
+      if (entry.recipeId !== recipe.id || entry.image !== "has image") return gone;
+      source = await fetchMadeEntryImage(token, recipe.id, id, "original");
+    } else {
+      return { error: "Something went wrong. Reload and try again." };
+    }
+
+    await keepEarlierPicture(token, recipe);
+    const blob = await source.blob();
+    const type = source.headers.get("Content-Type") || blob.type;
+    const extension = /png/.test(type)
+      ? "png"
+      : /webp/.test(type)
+        ? "webp"
+        : /jpe?g/.test(type)
+          ? "jpg"
+          : (id.split(".").pop() ?? "jpg");
+    await setRecipeImage(token, slug, blob, extension);
+    await saveFeaturedPhoto(token, slug, key);
+  } catch (e) {
+    if (e instanceof MealieAuthError) redirect("/logout?expired=1");
+    return { error: message(e) };
+  }
+  return {};
 }
 
 // ---------------------------------------------------------------------------

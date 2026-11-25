@@ -591,26 +591,72 @@ export async function setRecipeImage(token: string, slug: string, image: Blob, e
 export const IMAGE_SIZES = ["original", "min-original", "tiny-original"] as const;
 export type ImageSize = (typeof IMAGE_SIZES)[number];
 
-// Photos of the original recipe card are stored as recipe assets.
+// Photos of the original recipe card and of the finished dish are stored as
+// recipe assets, so none is lost when another becomes the main picture.
 const CARD_PREFIX = "Recipe card";
+const DISH_PREFIX = "Dish photo";
 
-export function cardAssets(recipe: Recipe): RecipeAsset[] {
+function assetsNamed(recipe: Recipe, prefix: string): RecipeAsset[] {
   return (recipe.assets ?? [])
-    .filter((a) => a.name.startsWith(CARD_PREFIX))
+    .filter((a) => a.name.startsWith(prefix))
     .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 }
 
-/** Attach a photo of the original card. `number` makes the name "Recipe card <number>". */
-export function uploadCardPhoto(token: string, slug: string, photo: Blob, extension: string, number: number) {
+export function cardAssets(recipe: Recipe): RecipeAsset[] {
+  return assetsNamed(recipe, CARD_PREFIX);
+}
+
+export function dishAssets(recipe: Recipe): RecipeAsset[] {
+  return assetsNamed(recipe, DISH_PREFIX);
+}
+
+function uploadPhotoAsset(token: string, slug: string, name: string, photo: Blob, extension: string) {
   const form = new FormData();
-  form.set("name", `${CARD_PREFIX} ${number}`);
+  form.set("name", name);
   form.set("icon", "mdi-file-image");
   form.set("extension", extension);
-  form.set("file", photo, `card.${extension}`);
+  form.set("file", photo, `photo.${extension}`);
   return json<RecipeAsset>(`/api/recipes/${encodeURIComponent(slug)}/assets`, token, {
     method: "POST",
     body: form,
   });
+}
+
+/** Attach a photo of the original card. `number` makes the name "Recipe card <number>". */
+export function uploadCardPhoto(token: string, slug: string, photo: Blob, extension: string, number: number) {
+  return uploadPhotoAsset(token, slug, `${CARD_PREFIX} ${number}`, photo, extension);
+}
+
+/**
+ * Keep a photo of the finished dish. Its name ends in the upload time, so a
+ * file name is never reused after a photo is removed (browsers cache them).
+ */
+export function uploadDishPhoto(token: string, slug: string, photo: Blob, extension: string) {
+  return uploadPhotoAsset(token, slug, `${DISH_PREFIX} ${Date.now()}`, photo, extension);
+}
+
+/** Take a dish photo off the recipe (Mealie has no delete for assets; its own app does the same). */
+export async function removeDishPhoto(token: string, slug: string, fileName: string) {
+  const recipe = await getRecipe(token, slug);
+  const assets = (recipe.assets ?? []).filter((a) => !(a.fileName === fileName && a.name.startsWith(DISH_PREFIX)));
+  await updateRecipe(token, slug, { ...recipe, assets });
+}
+
+/**
+ * Which photo is the recipe's main ("featured") picture, kept in extras so the
+ * edit page can mark it: "dish:<file>", "card:<file>" or "made:<entryId>".
+ */
+const FEATURED_KEY = "featured_photo";
+
+export function featuredPhoto(recipe: Recipe): string | null {
+  const value = recipe.extras?.[FEATURED_KEY];
+  return typeof value === "string" && value ? value : null;
+}
+
+/** Record which photo is featured. Reads the recipe fresh so nothing else is overwritten. */
+export async function saveFeaturedPhoto(token: string, slug: string, key: string) {
+  const recipe = await getRecipe(token, slug);
+  await updateRecipe(token, slug, { ...recipe, extras: { ...(recipe.extras ?? {}), [FEATURED_KEY]: key } });
 }
 
 /** Raw asset file from Mealie, streamed back through /asset/[id]/[file]. */
