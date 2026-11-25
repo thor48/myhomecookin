@@ -18,7 +18,11 @@ Phone ──https──▶ Cloudflare Tunnel ──▶ this app (Next.js, :3000)
 - **Add a recipe** three ways:
   - **Website:** paste a link. Mealie scrapes it and saves the source URL.
     Links that were already imported open the existing recipe instead of
-    making a duplicate.
+    making a duplicate. When Mealie can't find a recipe on the page (or saves
+    only an empty shell, which is removed), the app fetches the page itself
+    and Claude fills in the form for the person to check before saving. It
+    uses one of the same daily AI reads as photo import, and only public
+    addresses are fetched (`src/lib/web-page.ts`).
   - **Photo:** snap a recipe card, cookbook page or screenshot (up to 4
     photos). Claude reads it and fills in the form for the person to check
     and fix before saving. Every photo is kept in an "Original recipe card"

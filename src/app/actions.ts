@@ -64,9 +64,12 @@ import {
   MAX_PHOTO_BYTES,
   MAX_PHOTOS,
   PhotoImportError,
+  photoImportEnabled,
   readRecipeFromPhotos,
+  readRecipeFromWebPage,
   type RecipeDraft,
 } from "@/lib/photo-import";
+import { fetchPageImage, fetchRecipePage, WebPageError } from "@/lib/web-page";
 import { photoQuota, PHOTO_READS_PER_DAY, takePhotoRead, type PhotoQuota } from "@/lib/photo-quota";
 import { requireToken, SESSION_COOKIE } from "@/lib/session";
 
@@ -114,10 +117,24 @@ async function startSession(token: string) {
 
 // ---------------------------------------------------------------------------
 
+export type LinkImportState =
+  | {
+      error?: string;
+      /** Mealie couldn't read the page, so Claude did: a draft to check before saving. */
+      draft?: RecipeDraft;
+      url?: string;
+      imageUrl?: string | null;
+      categories?: string[];
+      quota?: PhotoQuota;
+    }
+  | undefined;
+
+const NO_RECIPE_ON_PAGE = "Couldn't find a recipe on that page. Try another link, or type it in yourself.";
+
 export async function importFromUrlAction(
-  _prev: FormState,
+  _prev: LinkImportState,
   formData: FormData,
-): Promise<FormState> {
+): Promise<LinkImportState> {
   const raw = String(formData.get("url") ?? "").trim();
   const categories = formData.getAll("category").map(String);
   let url: URL;
@@ -134,18 +151,25 @@ export async function importFromUrlAction(
   try {
     const existing = await findByOriginalUrl(token, url.href);
     if (existing) redirect(`/recipes/${existing.slug}?duplicate=1`);
-    slug = await createFromUrl(token, url.href);
+    try {
+      slug = await createFromUrl(token, url.href);
+    } catch (e) {
+      if (e instanceof MealieError && !(e instanceof MealieAuthError) && (e.status >= 500 || e.status === 400)) {
+        // Mealie's scraper found nothing it understands: let Claude read the page.
+        return readPageWithClaude(token, url.href, categories);
+      }
+      throw e;
+    }
+    // On pages without recipe data Mealie often "succeeds" anyway, saving just
+    // the title and picture. Take that shell away and let Claude read the page.
+    if (isEmptyScrape(await getRecipe(token, slug))) {
+      await deleteRecipe(token, slug);
+      return readPageWithClaude(token, url.href, categories);
+    }
     await setRecipeCategories(token, slug, categories);
   } catch (e) {
     if (e instanceof MealieAuthError) redirect("/logout?expired=1");
-    if (e instanceof MealieError) {
-      return {
-        error:
-          e.status >= 500 || e.status === 400
-            ? "Couldn't find a recipe on that page. Try another link, or type it in yourself."
-            : e.message,
-      };
-    }
+    if (e instanceof MealieError) return { error: e.message };
     throw e; // includes the redirect() above
   }
   const origin = await siteOrigin();
@@ -165,6 +189,57 @@ export async function importFromUrlAction(
     }
   });
   redirect(`/recipes/${slug}?added=1`);
+}
+
+/** Mealie's placeholders when it saved a page but found no recipe on it. */
+function isEmptyScrape(recipe: Recipe) {
+  const blank = (t?: string | null) => !t?.trim() || /^could not detect (ingredients|instructions)$/i.test(t.trim());
+  const noIngredients = (recipe.recipeIngredient ?? []).every(
+    (i) => blank(i.note) && blank(i.display) && blank(i.originalText),
+  );
+  const noSteps = (recipe.recipeInstructions ?? []).every((i) => blank(i.text));
+  return noIngredients && noSteps;
+}
+
+/**
+ * Mealie couldn't import the link, so fetch the page and have Claude pull the
+ * recipe out. Returns a draft for the person to check; saves nothing. Counts
+ * toward the same daily reads as photo import.
+ */
+async function readPageWithClaude(
+  token: string,
+  url: string,
+  categories: string[],
+): Promise<LinkImportState> {
+  if (!photoImportEnabled()) return { error: NO_RECIPE_ON_PAGE };
+
+  let userId: string;
+  try {
+    userId = (await getSelf(token)).id;
+  } catch (e) {
+    if (e instanceof MealieAuthError) redirect("/logout?expired=1");
+    return { error: message(e) };
+  }
+  const hold = await takePhotoRead(userId);
+  if (!hold) {
+    return {
+      error:
+        `Couldn't find a recipe on that page, and you've used today's ${PHOTO_READS_PER_DAY} ` +
+        "AI reads that could dig it out. Type it in yourself, or try again tomorrow.",
+    };
+  }
+
+  try {
+    const page = await fetchRecipePage(url);
+    const draft = await readRecipeFromWebPage(url, page.text);
+    return { draft, url, imageUrl: page.imageUrl, categories, quota: await photoQuota(userId) };
+  } catch (e) {
+    // Only reads that give a recipe count toward the limit.
+    await hold.release();
+    if (e instanceof WebPageError || e instanceof PhotoImportError) return { error: e.message };
+    console.error("Reading the page with Claude failed:", e);
+    return { error: NO_RECIPE_ON_PAGE };
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -193,6 +268,9 @@ export async function createManualAction(
     .filter((p): p is File => p instanceof File && p.size > 0 && isSupportedImage(p.type));
   const dish = formData.get("dishPhoto");
   const dishPhoto = dish instanceof File && dish.size > 0 && isSupportedImage(dish.type) ? dish : null;
+  // Set when Claude read a website Mealie couldn't: the page's own picture.
+  const pageImage = String(formData.get("pageImage") ?? "").trim();
+  const fromWebsite = formData.get("via") === "website";
 
   if (!name) return { error: "Give the recipe a name." };
   if (ingredients.length === 0) return { error: "Add at least one ingredient." };
@@ -245,6 +323,17 @@ export async function createManualAction(
     } catch (e) {
       console.error("Saving recipe photos failed:", e);
     }
+  } else if (pageImage) {
+    try {
+      const image = await fetchPageImage(pageImage);
+      if (image) {
+        const asset = await uploadDishPhoto(token, slug, image.data, image.extension);
+        await setRecipeImage(token, slug, image.data, image.extension);
+        await saveFeaturedPhoto(token, slug, `dish:${asset.fileName}`);
+      }
+    } catch (e) {
+      console.error("Saving the website's picture failed:", e);
+    }
   }
   const origin = await siteOrigin();
   after(async () => {
@@ -254,7 +343,7 @@ export async function createManualAction(
         name,
         slug,
         addedBy: self.fullName || self.username,
-        method: photos.length > 0 ? "photo" : "typed",
+        method: photos.length > 0 ? "photo" : fromWebsite ? "website" : "typed",
         siteOrigin: origin,
         sourceUrl: source || null,
         credit: credit || null,

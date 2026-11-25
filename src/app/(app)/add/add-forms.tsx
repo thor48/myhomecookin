@@ -64,6 +64,8 @@ export function AddForms({
 function LinkForm({ initialUrl }: { initialUrl: string }) {
   const [state, action, pending] = useActionState(importSafely, undefined);
   const [localError, setLocalError] = useState<string>();
+  // The draft Claude read, until "Back to the link".
+  const [dismissed, setDismissed] = useState<object>();
   const onSubmit = keepFormSubmit(
     (fd) => {
       setLocalError(undefined);
@@ -71,6 +73,44 @@ function LinkForm({ initialUrl }: { initialUrl: string }) {
     },
     { requireCategory: setLocalError },
   );
+
+  if (state?.draft && dismissed !== state) {
+    const { draft } = state;
+    return (
+      <div>
+        <div className="mb-4 rounded-xl bg-accent-soft px-4 py-3 text-sm">
+          <p className="font-medium">That site was tricky, so Claude read the page for you.</p>
+          <p className="mt-0.5">
+            Check it over before saving, and compare it with the website if anything looks off.
+          </p>
+          {draft.continues_elsewhere && (
+            <p className="mt-2">
+              <span className="font-medium">Heads up:</span> the page seemed to cut the recipe
+              short. Fill in anything missing below.
+            </p>
+          )}
+          {state.quota && (
+            <p className="mt-2 text-xs text-muted">
+              Used one of your daily AI reads ({state.quota.left} of {PHOTO_READS_PER_DAY} left).
+            </p>
+          )}
+        </div>
+        <ManualForm
+          draft={draft}
+          source={state.url}
+          pageImage={state.imageUrl ?? undefined}
+          categories={state.categories}
+        />
+        <button
+          type="button"
+          onClick={() => setDismissed(state)}
+          className="mt-3 w-full py-2 text-sm text-muted underline"
+        >
+          ← Back to the link
+        </button>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
@@ -80,7 +120,7 @@ function LinkForm({ initialUrl }: { initialUrl: string }) {
           name="url"
           type="url"
           inputMode="url"
-          defaultValue={initialUrl}
+          defaultValue={state?.url ?? initialUrl}
           placeholder="https://…"
           required
           autoFocus={!initialUrl}
@@ -90,12 +130,12 @@ function LinkForm({ initialUrl }: { initialUrl: string }) {
       <p className="text-sm text-muted">
         We&apos;ll pull out the ingredients and steps, and credit the website with a link back.
       </p>
-      <CategoryPicker />
+      <CategoryPicker defaultSelected={state?.categories} />
       <ErrorText error={localError ?? state?.error} />
       <button type="submit" disabled={pending} className="btn w-full">
         {pending ? "Reading the recipe…" : "Import recipe"}
       </button>
-      <StirOverlay show={pending} label="Adding it to the cookbook…" />
+      <StirOverlay show={pending} label="Reading the recipe…" />
     </form>
   );
 }
@@ -213,7 +253,7 @@ function PhotoImport({ enabled, initialQuota }: { enabled: boolean; initialQuota
     <div className="space-y-4">
       {locked && (
         <div role="status" className="rounded-xl bg-accent-soft px-4 py-3 text-sm">
-          <p className="font-medium">You&apos;ve used today&apos;s {PHOTO_READS_PER_DAY} photo reads.</p>
+          <p className="font-medium">You&apos;ve used today&apos;s {PHOTO_READS_PER_DAY} AI reads.</p>
           <p className="mt-0.5">
             Photo reading opens again in <span className="font-bold tabular-nums">{formatWait(waitMs)}</span>.
             You can still add a recipe from a website or type it in.
@@ -283,7 +323,7 @@ function PhotoImport({ enabled, initialQuota }: { enabled: boolean; initialQuota
       {quota && !locked && (
         <p className="text-center text-xs text-muted">
           {/* A read frees up when the countdown ends, before the next server check. */}
-          {Math.max(quota.left, 1)} of {PHOTO_READS_PER_DAY} photo reads left today
+          {Math.max(quota.left, 1)} of {PHOTO_READS_PER_DAY} AI reads left today (photos and tricky websites)
         </p>
       )}
       </fieldset>
@@ -313,7 +353,20 @@ function formatWait(ms: number) {
 
 // ---------------------------------------------------------------------------
 
-function ManualForm({ draft, photos = [] }: { draft?: RecipeDraft; photos?: File[] }) {
+function ManualForm({
+  draft,
+  photos = [],
+  source,
+  pageImage,
+  categories,
+}: {
+  draft?: RecipeDraft;
+  photos?: File[];
+  /** Read from a website by Claude: its link, picture and the categories already picked. */
+  source?: string;
+  pageImage?: string;
+  categories?: string[];
+}) {
   const [state, action, pending] = useActionState(createSafely, undefined);
   const [localError, setLocalError] = useState<string>();
   const [dishPhoto, setDishPhoto] = useState<File | null>(null);
@@ -328,6 +381,8 @@ function ManualForm({ draft, photos = [] }: { draft?: RecipeDraft; photos?: File
         // Card photos are kept with the recipe; a dish photo becomes its main picture.
         photos.forEach((p) => fd.append("photo", p));
         if (dishPhoto) fd.set("dishPhoto", dishPhoto);
+        else if (pageImage) fd.set("pageImage", pageImage);
+        if (source) fd.set("via", "website");
       },
     },
   );
@@ -400,11 +455,23 @@ function ManualForm({ draft, photos = [] }: { draft?: RecipeDraft; photos?: File
         />
       </Field>
       <Field label="Website it came from" hint="optional">
-        <input name="source" type="url" inputMode="url" className="field" placeholder="https://…" />
+        <input
+          name="source"
+          type="url"
+          inputMode="url"
+          defaultValue={source}
+          className="field"
+          placeholder="https://…"
+        />
       </Field>
       <CategoryPicker
-        defaultSelected={draft?.category && draft.category !== "None of these" ? [draft.category] : []}
+        defaultSelected={
+          categories ?? (draft?.category && draft.category !== "None of these" ? [draft.category] : [])
+        }
       />
+      {pageImage && !dishPhoto && (
+        <p className="text-sm text-muted">The website&apos;s picture will be the recipe photo.</p>
+      )}
       {photos.length > 0 && (
         <p className="text-sm text-muted">
           {photos.length === 1 ? "The photo" : photos.length === 2 ? "Both photos" : `All ${photos.length} photos`} will be kept with the

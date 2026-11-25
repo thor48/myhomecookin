@@ -68,5 +68,5 @@ export const BACKGROUND_PHOTO = {
     "https://unsplash.com/photos/a-person-cutting-up-vegetables-on-a-cutting-board-S2Eql9vHN3o?utm_source=my_home_cookin&utm_medium=referral",
 };
 
-/** Photo reads (AI calls) each person gets in any 24 hours. Enforced in src/lib/photo-quota.ts. */
+/** AI reads (photos, and websites Mealie can't import) each person gets in any 24 hours. Enforced in src/lib/photo-quota.ts. */
 export const PHOTO_READS_PER_DAY = 5;
