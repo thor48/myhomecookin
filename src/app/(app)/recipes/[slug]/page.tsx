@@ -14,7 +14,7 @@ import {
 import { currentUser, withMealie } from "@/lib/session";
 import { FavoriteButton } from "@/components/favorite-button";
 import { SourceCredit } from "@/components/source-credit";
-import { niceAmount, sourceCredit } from "@/lib/site";
+import { CATEGORIES, CATEGORY_EMOJI, niceAmount, sourceCredit, type CategoryName } from "@/lib/site";
 import { AddPhoto } from "./add-photo";
 import { CardPhotos } from "./card-photos";
 import { KitchenSection } from "./kitchen";
@@ -30,9 +30,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default function RecipePage({ params, searchParams }: Props) {
   return (
     <article className="mx-auto max-w-2xl">
-      <Link href="/" className="mb-4 inline-block text-sm text-muted hover:text-foreground">
-        ← All recipes
-      </Link>
+      <Suspense fallback={<Breadcrumb />}>
+        <BreadcrumbForRecipe params={params} />
+      </Suspense>
       <Suspense>
         <Banner searchParams={searchParams} />
       </Suspense>
@@ -41,6 +41,41 @@ export default function RecipePage({ params, searchParams }: Props) {
       </Suspense>
     </article>
   );
+}
+
+/** "← All recipes › 🍽️ Dinner / Mains": each category opens the list filtered to it. */
+function Breadcrumb({ categories = [] }: { categories?: { name: string; slug: string }[] }) {
+  return (
+    <nav aria-label="Breadcrumb" className="mb-4 text-sm">
+      <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-muted">
+        <li>
+          <Link href="/" className="hover:text-foreground">
+            ← All recipes
+          </Link>
+        </li>
+        {categories.map((c) => (
+          <li key={c.slug} className="flex items-center gap-1.5">
+            <span aria-hidden>›</span>
+            <Link href={`/?cat=${encodeURIComponent(c.slug)}`} className="font-bold text-link hover:underline">
+              {CATEGORY_EMOJI[c.name as CategoryName] ? `${CATEGORY_EMOJI[c.name as CategoryName]} ` : ""}
+              {c.name}
+            </Link>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
+async function BreadcrumbForRecipe({ params }: { params: Props["params"] }) {
+  const recipe = await loadRecipe((await params).slug); // same request the page uses (cached)
+  // App categories first, in their usual order; then any others the recipe has.
+  const order = (n: string) => {
+    const i = (CATEGORIES as readonly string[]).indexOf(n);
+    return i === -1 ? CATEGORIES.length : i;
+  };
+  const categories = [...(recipe.recipeCategory ?? [])].sort((a, b) => order(a.name) - order(b.name));
+  return <Breadcrumb categories={categories} />;
 }
 
 async function Banner({ searchParams }: { searchParams: Props["searchParams"] }) {
