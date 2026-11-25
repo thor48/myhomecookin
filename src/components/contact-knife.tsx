@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { contactAction } from "@/app/actions";
 import { keepFormSubmit } from "@/lib/keep-form";
@@ -21,7 +20,6 @@ const KINDS = [
  * Layout and motion live in globals.css (.contact-*).
  */
 export function ContactKnife() {
-  const page = usePathname();
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<"bug" | "idea" | "">("");
   const [text, setText] = useState("");
@@ -82,7 +80,8 @@ export function ContactKnife() {
             ) : (
               <form
                 onSubmit={keepFormSubmit(action, {
-                  extend: (fd) => fd.set("page", page),
+                  // Read when sent, not while rendering, so pages can still be pre-built.
+                  extend: (fd) => fd.set("page", window.location.pathname),
                 })}
                 className="space-y-3"
               >
