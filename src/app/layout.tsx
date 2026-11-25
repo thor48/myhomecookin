@@ -20,10 +20,17 @@ export const viewport: Viewport = {
   themeColor: "#f8f1e9",
 };
 
+// Chrome can offer "install" before React is ready; keep its prompt on window
+// for the footer's Add to Home Screen button (src/components/pwa.tsx).
+const CAPTURE_INSTALL_PROMPT = `addEventListener("beforeinstallprompt",function(e){e.preventDefault();window.__installPrompt=e;dispatchEvent(new Event("installpromptready"))});addEventListener("appinstalled",function(){window.__installPrompt=null;dispatchEvent(new Event("installpromptready"))});`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${playfair.variable} ${lato.variable} ${caveat.variable} h-full antialiased`}>
-      <body className="min-h-full font-sans">{children}</body>
+      <body className="min-h-full font-sans">
+        <script dangerouslySetInnerHTML={{ __html: CAPTURE_INSTALL_PROMPT }} />
+        {children}
+      </body>
     </html>
   );
 }

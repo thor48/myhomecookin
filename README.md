@@ -59,13 +59,19 @@ Phone ──https──▶ Cloudflare Tunnel ──▶ this app (Next.js, :3000)
   in Mealie).
 - **Installable** as an app (Add to Home Screen). On Android it also shows up
   in the Share menu, so you can share a recipe page straight into the app.
+  The footer has an **Add to Home Screen** button: on Android it opens the
+  browser's install prompt; on iPhone it shows the Share → Add to Home Screen steps.
+- **Works offline** for recipes you've opened: the service worker keeps a copy
+  of the recipe list and each recipe page you view (up to 80) on the phone.
+  With no connection you get that copy, or a "You're offline" page listing
+  what's saved. Signing out deletes the saved copies.
 
 | Path | File |
 |---|---|
 | Mealie API client | `src/lib/mealie.ts` |
 | Session / auth helpers | `src/lib/session.ts`, `src/proxy.ts`, `src/app/actions.ts` |
 | Pages | `src/app/(app)/…`, `src/app/login/` |
-| PWA | `src/app/manifest.ts`, `src/app/icons/`, `src/app/apple-icon.tsx` |
+| PWA | `src/app/manifest.ts`, `public/icons/`, `src/app/apple-icon.png`, `public/sw.js` (offline copies), `public/offline.html`, `src/components/pwa.tsx` (Add to Home Screen button) |
 | Brand: colors, fonts | `src/app/globals.css`, `src/app/layout.tsx` (from `MyHomeCookin_Logo-StyleGuide/`) |
 | Background photo | `public/brand/page-bg-*.webp`, by Or Hakim, [free on Unsplash](https://unsplash.com/photos/a-person-cutting-up-vegetables-on-a-cutting-board-S2Eql9vHN3o) (credited in the footer; details in `BACKGROUND_PHOTO`, `src/lib/site.ts`) |
 | Brand: logos, app icons | Built from `MyHomeCookin_Logo-StyleGuide/MyHomeCookin_Logo_Primary_Final.png` into `public/brand/` and the icons by `node scripts/make-brand-assets.mjs` |

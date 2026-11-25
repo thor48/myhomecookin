@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { BottomTabBar, BottomTabs, TopNav, TopNavLinks } from "@/components/app-nav";
 import { AnimatedMark } from "@/components/animated-mark";
 import { ContactKnife } from "@/components/contact-knife";
+import { InstallButton, ServiceWorker } from "@/components/pwa";
 import { BACKGROUND_PHOTO, SITE_NAME } from "@/lib/site";
 
 export default function AppLayout({ children }: LayoutProps<"/">) {
@@ -47,6 +48,7 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
       {/* On phones, leave room under the footer for the bottom tab bar. */}
       <footer className="bg-[var(--deep-brown)] text-[#f8f1e9]">
         <div className="mx-auto max-w-5xl px-4 pt-5 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
+          <InstallButton />
           <p className="text-center text-xs opacity-75">
             Background photo by{" "}
             <a href={BACKGROUND_PHOTO.profileUrl} target="_blank" rel="noopener" className="underline underline-offset-2">
@@ -61,6 +63,10 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
       </footer>
       <Suspense fallback={<BottomTabs path="" />}>
         <BottomTabBar />
+      </Suspense>
+      {/* Keeps opened recipes on the phone for when there's no connection */}
+      <Suspense>
+        <ServiceWorker />
       </Suspense>
       {/* Bug / idea form, sent to the account Discord channel */}
       <ContactKnife />

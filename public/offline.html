@@ -1,0 +1,94 @@
+<!doctype html>
+<!--
+  Shown by the service worker (public/sw.js) when there's no connection and
+  the page asked for wasn't kept on this phone. Self-contained on purpose: no
+  build files, so it always works. Lists the recipes that were kept.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f8f1e9" />
+    <title>You're offline</title>
+    <style>
+      :root {
+        --cream: #f8f1e9;
+        --deep-brown: #4a3429;
+        --muted: #76604f;
+        --border: #e6d5c6;
+        --accent: #be5924;
+        --link: #946144;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        background: var(--cream);
+        color: var(--deep-brown);
+        font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+        padding: calc(env(safe-area-inset-top) + 2.5rem) 1.25rem calc(env(safe-area-inset-bottom) + 2rem);
+      }
+      main { max-width: 28rem; margin: 0 auto; text-align: center; }
+      img { height: 5rem; width: auto; }
+      h1 { font-family: "Playfair Display", Georgia, serif; font-size: 1.6rem; margin: 0.75rem 0 0.25rem; }
+      p { margin: 0 0 1.25rem; color: var(--muted); }
+      button {
+        font: inherit; font-weight: 700; color: #fff; background: var(--accent);
+        border: 0; border-radius: 0.5rem; padding: 0.75rem 1.25rem; cursor: pointer;
+      }
+      section { margin-top: 2rem; text-align: left; }
+      h2 { font-family: "Playfair Display", Georgia, serif; font-size: 1.15rem; margin: 0 0 0.5rem; }
+      ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
+      li a {
+        display: block; padding: 0.8rem 0.25rem; border-bottom: 1px solid var(--border);
+        color: var(--deep-brown); text-decoration: none; font-weight: 700;
+      }
+      li a::after { content: "›"; float: right; color: var(--link); }
+      [hidden] { display: none; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/brand/logo-mark.png" alt="" width="484" height="618" />
+      <h1>You're offline</h1>
+      <p>That page isn't saved on this phone yet. It'll load once you're back online.</p>
+      <button type="button" onclick="location.reload()">Try again</button>
+
+      <section id="kept" hidden>
+        <h2>Saved on this phone</h2>
+        <ul id="kept-list"></ul>
+      </section>
+    </main>
+    <script>
+      // Recipes the service worker kept (see public/sw.js, PAGES cache).
+      (async () => {
+        if (!("caches" in window)) return;
+        const names = (await caches.keys()).filter((n) => n.startsWith("pages-"));
+        const items = [];
+        for (const name of names) {
+          const cache = await caches.open(name);
+          for (const req of await cache.keys()) {
+            const res = await cache.match(req);
+            const html = res ? await res.text() : "";
+            const raw = (html.match(/<title>([^<]*)<\/title>/) || [])[1] || "";
+            const title = new DOMParser().parseFromString(raw, "text/html").documentElement.textContent.split(" · ")[0];
+            const path = new URL(req.url).pathname;
+            items.push({ path, title: path === "/" ? "All recipes" : title || path });
+          }
+        }
+        if (!items.length) return;
+        items.sort((a, b) => (a.path === "/" ? -1 : b.path === "/" ? 1 : a.title.localeCompare(b.title)));
+        const list = document.getElementById("kept-list");
+        for (const item of items) {
+          const a = document.createElement("a");
+          a.href = item.path;
+          a.textContent = item.title;
+          const li = document.createElement("li");
+          li.append(a);
+          list.append(li);
+        }
+        document.getElementById("kept").hidden = false;
+      })();
+    </script>
+  </body>
+</html>
