@@ -3,7 +3,12 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
-import { notifyNewRecipe } from "@/lib/discord";
+import {
+  accountAlertsEnabled,
+  notifyJoinRequest,
+  notifyNewRecipe,
+  notifyRequestApproved,
+} from "@/lib/discord";
 import {
   createFromUrl,
   createManual,
@@ -339,4 +344,85 @@ export async function joinAction(_prev: JoinState, formData: FormData): Promise<
   }
   await startSession(token);
   redirect("/?welcome=1");
+}
+
+// ---------------------------------------------------------------------------
+// Ask to join → Discord → admin approves → invite link
+
+export type AskState = { error?: string; sent?: boolean; name?: string; email?: string; note?: string } | undefined;
+
+// Simple per-connection limit for the public form (resets when the app restarts).
+const recentAsks = new Map<string, number[]>();
+function tooManyAsks(key: string) {
+  const hour = 60 * 60 * 1000;
+  const now = Date.now();
+  const times = (recentAsks.get(key) ?? []).filter((t) => now - t < hour);
+  if (recentAsks.size > 5000) recentAsks.clear();
+  if (times.length >= 3) return true;
+  recentAsks.set(key, [...times, now]);
+  return false;
+}
+
+/** Public "Ask to join" form: sends the request to the account Discord channel. */
+export async function askToJoinAction(_prev: AskState, formData: FormData): Promise<AskState> {
+  const name = String(formData.get("name") ?? "").trim().slice(0, 80);
+  const email = String(formData.get("email") ?? "").trim().toLowerCase().slice(0, 200);
+  const note = String(formData.get("note") ?? "").trim().slice(0, 500);
+  const keep = { name, email, note };
+
+  // Bots: a field people can't see, and a form filled in faster than a person could.
+  const startedAt = Number(formData.get("t") ?? 0);
+  if (String(formData.get("website") ?? "") || !startedAt || Date.now() - startedAt < 3000) {
+    return { sent: true }; // look successful, send nothing
+  }
+
+  if (!name) return { error: "Enter your name.", ...keep };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: "Enter a valid email address.", ...keep };
+  if (!note) return { error: "Tell us how you know us, so we can recognize you.", ...keep };
+  if (!accountAlertsEnabled()) {
+    return { error: "Requests aren't switched on yet. Ask whoever runs the cookbook directly.", ...keep };
+  }
+
+  const h = await headers();
+  const ip = h.get("cf-connecting-ip") ?? h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "local";
+  if (tooManyAsks(ip)) return { error: "That's a few requests already. Try again later.", ...keep };
+
+  const origin = await siteOrigin();
+  // Request details go after "#", which browsers never send to the server,
+  // so names and emails stay out of server and Cloudflare logs.
+  const details = Buffer.from(JSON.stringify({ n: name, e: email, m: note, t: Date.now() })).toString("base64url");
+  const sent = await notifyJoinRequest({
+    name,
+    email,
+    howTheyKnowUs: note,
+    reviewUrl: `${origin}/approve#r=${details}`,
+    siteOrigin: origin,
+  });
+  if (!sent) return { error: "Couldn't send your request just now. Please try again in a bit.", ...keep };
+  return { sent: true };
+}
+
+export type ApproveResult = { error: string } | { url: string };
+
+/** Admin approves a join request: makes a single-use invite link and notes it in Discord. */
+export async function approveRequestAction(name: string): Promise<ApproveResult> {
+  const token = await requireToken();
+  let url: string;
+  let approvedBy: string;
+  try {
+    const self = await getSelf(token);
+    if (!self.canInvite && !self.admin) {
+      return { error: "Your account can't approve requests. Ask whoever runs the cookbook." };
+    }
+    approvedBy = self.fullName || self.username;
+    const invite = await createInvite(token, 1);
+    url = `${await siteOrigin()}/join?token=${encodeURIComponent(invite.token)}`;
+  } catch (e) {
+    if (e instanceof MealieAuthError) redirect("/logout?expired=1");
+    return { error: message(e) };
+  }
+  const origin = await siteOrigin();
+  const who = String(name).trim().slice(0, 80) || "Someone";
+  after(() => notifyRequestApproved({ name: who, approvedBy, siteOrigin: origin }));
+  return { url };
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { SITE_NAME } from "@/lib/site";
 import { LoginForm } from "./login-form";
@@ -29,7 +30,10 @@ export default function LoginPage({ searchParams }: PageProps<"/login">) {
         <LoginFormWithNext searchParams={searchParams} />
       </Suspense>
       <p className="mt-8 text-center text-sm text-muted">
-        No account yet? Ask whoever runs the cookbook for an invite.
+        No account yet?{" "}
+        <Link href="/ask-to-join" className="font-bold text-link underline">
+          Ask to join
+        </Link>
       </p>
     </main>
   );

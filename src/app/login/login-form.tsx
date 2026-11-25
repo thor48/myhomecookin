@@ -5,9 +5,14 @@ import { loginAction } from "../actions";
 
 export function LoginForm({ next }: { next: string }) {
   const [state, action, pending] = useActionState(loginAction, undefined);
+  // Keep a link's "#…" part (e.g. a join request from Discord) through sign-in.
+  const submit = (formData: FormData) => {
+    if (next !== "/" && window.location.hash) formData.set("next", next + window.location.hash);
+    action(formData);
+  };
 
   return (
-    <form action={action} className="space-y-4">
+    <form action={submit} className="space-y-4">
       <input type="hidden" name="next" value={next} />
       <label className="block">
         <span className="mb-1.5 block text-sm font-medium">Email or username</span>

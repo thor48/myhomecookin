@@ -107,6 +107,9 @@ existing link doesn't post. Recipes added directly in Mealie's own UI don't
 post. Alerts are sent after the page responds, so a slow or down Discord never
 delays or breaks saving.
 
+Set `DISCORD_WEBHOOK_ACCOUNT` to a second channel's webhook for join requests
+(see below).
+
 Webhook URLs are secrets: keep them in Unraid's container settings (masked)
 and `.env.local`, never in the repo.
 
@@ -118,6 +121,20 @@ and `.env.local`, never in the repo.
    link**. Share it by text or email.
 3. They open `https://myhomecookin.com/join?token=…`, enter their name, email
    and a password (8+ characters), and they're signed in. They never see Mealie.
+
+### People asking to join
+
+Anyone can fill in **Ask to join** (`/ask-to-join`, linked from the login page)
+with their name, email and how they know you. It posts to the
+`DISCORD_WEBHOOK_ACCOUNT` channel with a **Review and approve** link. Open it,
+sign in if needed, tap **Approve and make invite**, then **Email invite**
+(opens your mail app with their single-use link filled in). The channel gets an
+"approved" note. To decline, ignore the request.
+
+Nothing is stored: the request details travel in the review link after `#`,
+which browsers never send to the server, so they stay out of server and
+Cloudflare logs. The form has a hidden bot trap, a minimum fill-in time and a
+limit of 3 requests per hour per connection.
 
 Each link stops working once it's used up. New accounts can't invite others
 unless you tick **Can invite** on them in Mealie (Settings → Users).

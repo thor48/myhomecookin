@@ -7,6 +7,7 @@ import { SITE_NAME, sourceHost } from "./site";
  * Webhook URLs are secrets (anyone with one can post to the channel): they
  * live only in environment variables, never in the repo.
  *   DISCORD_WEBHOOK_RECIPES — new recipe added
+ *   DISCORD_WEBHOOK_ACCOUNT — someone asked to join / a request was approved
  */
 
 const TERRACOTTA = 0xc17f59;
@@ -21,9 +22,13 @@ type Embed = {
   timestamp?: string;
 };
 
+export function accountAlertsEnabled() {
+  return Boolean(process.env.DISCORD_WEBHOOK_ACCOUNT);
+}
+
 /** Post to a Discord webhook. Never throws and gives up after 4s: alerts must not break the app. */
-async function post(webhook: string | undefined, embed: Embed, avatarOrigin?: string) {
-  if (!webhook) return;
+async function post(webhook: string | undefined, embed: Embed, avatarOrigin?: string): Promise<boolean> {
+  if (!webhook) return false;
   try {
     const res = await fetch(webhook, {
       method: "POST",
@@ -38,8 +43,10 @@ async function post(webhook: string | undefined, embed: Embed, avatarOrigin?: st
       signal: AbortSignal.timeout(4000),
     });
     if (!res.ok) console.error(`Discord alert failed: ${res.status} ${await res.text()}`);
+    return res.ok;
   } catch (e) {
     console.error("Discord alert failed:", e instanceof Error ? e.message : e);
+    return false;
   }
 }
 
@@ -69,6 +76,45 @@ export function notifyNewRecipe(input: {
         ...(from ? [{ name: "From", value: from.slice(0, 1024) }] : []),
       ],
       footer: { text: "New recipe" },
+    },
+    input.siteOrigin,
+  );
+}
+
+/** Someone filled in "Ask to join". Returns whether Discord accepted it. */
+export function notifyJoinRequest(input: {
+  name: string;
+  email: string;
+  howTheyKnowUs: string;
+  reviewUrl: string;
+  siteOrigin: string;
+}) {
+  return post(
+    process.env.DISCORD_WEBHOOK_ACCOUNT,
+    {
+      title: `🙋 ${input.name} would like to join`.slice(0, 256),
+      url: input.reviewUrl,
+      description: `**[Review and approve →](${input.reviewUrl})**`,
+      fields: [
+        { name: "Name", value: input.name.slice(0, 1024), inline: true },
+        { name: "Email", value: input.email.slice(0, 1024), inline: true },
+        { name: "How they know us", value: (input.howTheyKnowUs || "—").slice(0, 1024) },
+      ],
+      footer: { text: "Join request" },
+    },
+    input.siteOrigin,
+  );
+}
+
+/** An admin approved a request and made the invite. */
+export function notifyRequestApproved(input: { name: string; approvedBy: string; siteOrigin: string }) {
+  return post(
+    process.env.DISCORD_WEBHOOK_ACCOUNT,
+    {
+      title: `✅ ${input.name} approved`.slice(0, 256),
+      description: `Invite made by ${input.approvedBy}.`.slice(0, 4096),
+      color: 0x8a9a7b, // sage
+      footer: { text: "Join request" },
     },
     input.siteOrigin,
   );
