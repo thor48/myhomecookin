@@ -57,6 +57,7 @@ import {
 import { requireToken, SESSION_COOKIE } from "@/lib/session";
 
 export type FormState = { error?: string; username?: string } | undefined;
+export type LoginResult = { error?: string; username?: string; next?: string };
 
 function safeNext(value: FormDataEntryValue | null) {
   const next = typeof value === "string" ? value : "";
@@ -70,7 +71,8 @@ function message(e: unknown) {
 
 // ---------------------------------------------------------------------------
 
-export async function loginAction(_prev: FormState, formData: FormData): Promise<FormState> {
+/** Sign in. Returns where to go next; the login page navigates after its short animation. */
+export async function loginAction(formData: FormData): Promise<LoginResult> {
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   if (!username || !password) return { error: "Enter your email and password.", username };
@@ -83,7 +85,7 @@ export async function loginAction(_prev: FormState, formData: FormData): Promise
   }
 
   await startSession(token);
-  redirect(safeNext(formData.get("next")));
+  return { next: safeNext(formData.get("next")) };
 }
 
 async function startSession(token: string) {
@@ -174,6 +176,8 @@ export async function createManualAction(
   const photos = formData
     .getAll("photo")
     .filter((p): p is File => p instanceof File && p.size > 0 && isSupportedImage(p.type));
+  const dish = formData.get("dishPhoto");
+  const dishPhoto = dish instanceof File && dish.size > 0 && isSupportedImage(dish.type) ? dish : null;
 
   if (!name) return { error: "Give the recipe a name." };
   if (ingredients.length === 0) return { error: "Add at least one ingredient." };
@@ -208,14 +212,16 @@ export async function createManualAction(
   // Keep every photo it was read from as the original card, and use the
   // first as the recipe's picture until someone adds a photo of the dish.
   // The recipe is already saved, so a failed upload shouldn't lose it.
-  if (photos.length > 0) {
+  if (photos.length > 0 || dishPhoto) {
     try {
-      await setRecipeImage(token, slug, photos[0], extensionOf(photos[0]));
+      // A dish photo is the main picture; otherwise the front of the card is.
+      const main = dishPhoto ?? photos[0];
+      await setRecipeImage(token, slug, main, extensionOf(main));
       for (const [i, p] of photos.entries()) {
         await uploadCardPhoto(token, slug, p, extensionOf(p), i + 1);
       }
     } catch (e) {
-      console.error("Saving recipe card photos failed:", e);
+      console.error("Saving recipe photos failed:", e);
     }
   }
   const origin = await siteOrigin();

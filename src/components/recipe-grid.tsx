@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { RecipeSummary } from "@/lib/mealie";
 import { FavoriteButton } from "./favorite-button";
 import { SourceCredit } from "./source-credit";
+import { CATEGORIES, CATEGORY_EMOJI, type CategoryName } from "@/lib/site";
 
 /** Grid of recipe cards with a ♥ on each. Used by the home page and My Recipes. */
 export function RecipeGrid({
@@ -37,7 +38,15 @@ export function RecipeGrid({
   );
 }
 
+/** The recipe's first app category, in the usual order, e.g. "🍽️ Dinner / Mains". */
+function categoryLabel(recipe: RecipeSummary) {
+  const names = (recipe.recipeCategory ?? []).map((c) => c.name);
+  const name = CATEGORIES.find((c) => names.some((n) => n.toLowerCase() === c.toLowerCase()));
+  return name ? `${CATEGORY_EMOJI[name as CategoryName]} ${name}` : null;
+}
+
 function RecipeCard({ recipe, made }: { recipe: RecipeSummary; made: number }) {
+  const category = categoryLabel(recipe);
   return (
     <Link
       href={`/recipes/${recipe.slug}`}
@@ -63,6 +72,7 @@ function RecipeCard({ recipe, made }: { recipe: RecipeSummary; made: number }) {
       </div>
       <div className="flex flex-col gap-0.5 p-3">
         <h2 className="line-clamp-2 font-serif text-[1.05rem] font-bold leading-snug">{recipe.name}</h2>
+        {category && <span className="truncate text-xs text-muted">{category}</span>}
         <SourceCredit url={recipe.orgURL} compact />
       </div>
     </Link>

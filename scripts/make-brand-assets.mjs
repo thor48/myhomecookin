@@ -40,6 +40,46 @@ async function transparent(region) {
   return sharp(out, { raw: { width: info.width, height: info.height, channels: 4 } }).png();
 }
 
+// Layers of the house mark for the header animation (coordinates inside PARTS.mark).
+// The steam floats above the spoon; the spoon sits above the chimney top.
+export const LAYERS = {
+  steam: { left: 362, top: 6, width: 74, height: 102 },
+  spoon: { left: 352, top: 104, width: 86, height: 118 },
+};
+
+/** The mark split into base (spoon and steam erased), spoon and steam layers. */
+async function markLayers() {
+  const mark = await (await transparent(PARTS.mark)).raw().toBuffer({ resolveWithObject: true });
+  const { width, height, channels } = mark.info;
+  const base = Buffer.from(mark.data);
+  for (const r of Object.values(LAYERS)) {
+    for (let y = r.top; y < r.top + r.height; y++)
+      for (let x = r.left; x < r.left + r.width; x++) base[(y * width + x) * channels + 3] = 0;
+  }
+  const raw = { raw: { width, height, channels } };
+  const png = (img) => img.png({ palette: true, quality: 90, effort: 10, compressionLevel: 9 }).toBuffer();
+  return {
+    base: await png(sharp(base, raw)),
+    spoon: await png(sharp(mark.data, raw).extract(LAYERS.spoon)),
+    steam: await png(sharp(mark.data, raw).extract(LAYERS.steam)),
+  };
+}
+
+/** The stacked logo (login page) with the spoon and steam erased; same layers sit on top. */
+async function stackedBase() {
+  const full = await (await transparent(PARTS.full)).raw().toBuffer({ resolveWithObject: true });
+  const { width, height, channels } = full.info;
+  const dx = PARTS.mark.left - PARTS.full.left;
+  const dy = PARTS.mark.top - PARTS.full.top;
+  for (const r of Object.values(LAYERS)) {
+    for (let y = r.top + dy; y < r.top + dy + r.height; y++)
+      for (let x = r.left + dx; x < r.left + dx + r.width; x++) full.data[(y * width + x) * channels + 3] = 0;
+  }
+  return sharp(full.data, { raw: { width, height, channels } })
+    .png({ palette: true, quality: 90, effort: 10, compressionLevel: 9 })
+    .toBuffer();
+}
+
 /** A transparent logo part as a compact palette PNG (about a third of the size). */
 async function web(region) {
   return (await transparent(region)).png({ palette: true, quality: 90, effort: 10, compressionLevel: 9 }).toBuffer();
@@ -62,6 +102,12 @@ const outputs = {
   "public/brand/logo-primary.png": await web(PARTS.full),
   "public/brand/logo-mark.png": await web(PARTS.mark),
   "public/brand/logo-wordmark.png": await web(PARTS.wordmark),
+  ...(await markLayers().then((l) => ({
+    "public/brand/logo-mark-base.png": l.base,
+    "public/brand/logo-mark-spoon.png": l.spoon,
+    "public/brand/logo-mark-steam.png": l.steam,
+  }))),
+  "public/brand/logo-primary-base.png": await stackedBase(),
   // App icons
   "public/icons/icon-192.png": await icon(192, 0.88),
   "public/icons/icon-512.png": await icon(512, 0.88),

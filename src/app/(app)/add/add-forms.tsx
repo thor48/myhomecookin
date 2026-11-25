@@ -253,6 +253,7 @@ function PhotoImport({ enabled }: { enabled: boolean }) {
 function ManualForm({ draft, photos = [] }: { draft?: RecipeDraft; photos?: File[] }) {
   const [state, action, pending] = useActionState(createManualAction, undefined);
   const [localError, setLocalError] = useState<string>();
+  const [dishPhoto, setDishPhoto] = useState<File | null>(null);
   const onSubmit = keepFormSubmit(
     (fd) => {
       setLocalError(undefined);
@@ -260,8 +261,11 @@ function ManualForm({ draft, photos = [] }: { draft?: RecipeDraft; photos?: File
     },
     {
       requireCategory: setLocalError,
-      // Attach the card photos: they're kept with the recipe.
-      extend: (fd) => photos.forEach((p) => fd.append("photo", p)),
+      extend: (fd) => {
+        // Card photos are kept with the recipe; a dish photo becomes its main picture.
+        photos.forEach((p) => fd.append("photo", p));
+        if (dishPhoto) fd.set("dishPhoto", dishPhoto);
+      },
     },
   );
 
@@ -276,6 +280,7 @@ function ManualForm({ draft, photos = [] }: { draft?: RecipeDraft; photos?: File
           placeholder="Grandma's apple cake"
         />
       </Field>
+      <DishPhotoPicker value={dishPhoto} onChange={setDishPhoto} />
       <Field label="About it" hint="optional">
         <textarea
           name="description"
@@ -347,6 +352,68 @@ function ManualForm({ draft, photos = [] }: { draft?: RecipeDraft; photos?: File
         {pending ? "Saving…" : "Save recipe"}
       </button>
     </form>
+  );
+}
+
+/** "Photo of the dish" with a preview; shrunk in the browser like the other uploads. */
+function DishPhotoPicker({ value, onChange }: { value: File | null; onChange: (f: File | null) => void }) {
+  const [preview, setPreview] = useState<string>();
+  const [error, setError] = useState<string>();
+  useEffect(
+    () => () => {
+      if (preview) URL.revokeObjectURL(preview);
+    },
+    [preview],
+  );
+
+  async function pick(file?: File) {
+    setError(undefined);
+    if (!file) return;
+    try {
+      const small = await shrinkPhoto(file);
+      onChange(small);
+      setPreview(URL.createObjectURL(small));
+    } catch {
+      setError("Couldn't open that photo. Try a JPEG or PNG.");
+    }
+  }
+
+  return (
+    <div>
+      <span className="mb-1.5 block text-sm font-medium">
+        Photo of the dish <span className="font-normal text-muted">(optional)</span>
+      </span>
+      {value && preview ? (
+        <div className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element -- local preview */}
+          <img src={preview} alt="" className="h-20 w-28 rounded-lg object-cover shadow-card" />
+          <button
+            type="button"
+            className="text-sm text-link underline"
+            onClick={() => {
+              onChange(null);
+              setPreview(undefined);
+            }}
+          >
+            Remove photo
+          </button>
+        </div>
+      ) : (
+        <label className="btn-quiet cursor-pointer">
+          📷 Add a photo of the finished dish
+          <input
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            onChange={(e) => {
+              pick(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+        </label>
+      )}
+      <ErrorText error={error} />
+    </div>
   );
 }
 

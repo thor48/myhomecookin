@@ -1,4 +1,7 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { BottomTabBar, BottomTabs, TopNav, TopNavLinks } from "@/components/app-nav";
+import { AnimatedMark } from "@/components/animated-mark";
 import { BACKGROUND_PHOTO, SITE_NAME } from "@/lib/site";
 
 export default function AppLayout({ children }: LayoutProps<"/">) {
@@ -9,17 +12,14 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
           {/* Horizontal logo: house mark + wordmark, ~142px wide (style guide minimum: 140px). */}
           {/* eslint-disable @next/next/no-img-element -- static brand images */}
           <Link href="/" className="mr-auto flex shrink-0 items-end gap-1.5" aria-label={`${SITE_NAME} home`}>
-            <img src="/brand/logo-mark.png" alt="" width={47} height={60} className="h-[3.75rem] w-auto" />
+            <AnimatedMark className="h-[3.75rem]" />
             <img src="/brand/logo-wordmark.png" alt={SITE_NAME} width={89} height={42} className="h-[2.625rem] w-auto" />
           </Link>
           {/* eslint-enable @next/next/no-img-element */}
-          <Link href="/add" className="btn shrink-0 px-3.5 py-2 text-sm whitespace-nowrap">
-            + Add
-          </Link>
-          {/* Plain <a>: a prefetched /logout would sign people out. */}
-          <a href="/logout" className="shrink-0 text-sm whitespace-nowrap text-muted hover:text-foreground">
-            Sign out
-          </a>
+          {/* Desktop links; phones use the bottom tab bar. */}
+          <Suspense fallback={<TopNavLinks path="" />}>
+            <TopNav />
+          </Suspense>
         </div>
       </header>
       {/*
@@ -43,20 +43,10 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         </div>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-5 pb-[min(32vh,17rem)]">{children}</main>
       </div>
+      {/* On phones, leave room under the footer for the bottom tab bar. */}
       <footer className="bg-[var(--deep-brown)] text-[#f8f1e9]">
-        <div className="mx-auto max-w-5xl px-4 pt-6 pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
-          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm">
-            <Link href="/my-recipes" className="font-bold underline-offset-2 hover:underline">
-              ♥ My Recipes
-            </Link>
-            <Link href="/invite" className="underline-offset-2 opacity-90 hover:underline hover:opacity-100">
-              Invite family
-            </Link>
-            <Link href="/add" className="underline-offset-2 opacity-90 hover:underline hover:opacity-100">
-              Add a recipe
-            </Link>
-          </nav>
-          <p className="mt-4 text-center text-xs opacity-75">
+        <div className="mx-auto max-w-5xl px-4 pt-5 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] sm:pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
+          <p className="text-center text-xs opacity-75">
             Background photo by{" "}
             <a href={BACKGROUND_PHOTO.profileUrl} target="_blank" rel="noopener" className="underline underline-offset-2">
               {BACKGROUND_PHOTO.photographer}
@@ -68,6 +58,9 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
           </p>
         </div>
       </footer>
+      <Suspense fallback={<BottomTabs path="" />}>
+        <BottomTabBar />
+      </Suspense>
     </div>
   );
 }
