@@ -53,7 +53,10 @@ async function Welcome({ searchParams }: { searchParams: SP }) {
   );
 }
 
-/** Category buttons: 3 across on phones (2 rows), one row on wider screens. No sideways scrolling. */
+/**
+ * Category buttons: 3 across on phones (2 rows), one row on wider screens. No sideways scrolling.
+ * There's no "All" button; tapping the selected category again clears the filter.
+ */
 async function CategoryChips({ searchParams }: { searchParams: SP }) {
   const sp = await searchParams;
   const current = one(sp.cat);
@@ -83,9 +86,14 @@ async function CategoryChips({ searchParams }: { searchParams: SP }) {
   );
   return (
     <nav aria-label="Categories" className="mb-4 grid auto-rows-fr grid-cols-3 gap-2 sm:grid-cols-6">
-      {button("all", "📖", "All", !current, href())}
       {categories.map((c) =>
-        button(c.slug, CATEGORY_EMOJI[c.name as CategoryName] ?? "🍴", c.name, current === c.slug, href(c.slug)),
+        button(
+          c.slug,
+          CATEGORY_EMOJI[c.name as CategoryName] ?? "🍴",
+          c.name,
+          current === c.slug,
+          href(current === c.slug ? undefined : c.slug),
+        ),
       )}
     </nav>
   );

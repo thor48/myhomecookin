@@ -49,6 +49,7 @@ export const CATEGORIES = [
   "BBQ & Smokers",
   "Sides & Salads",
   "Desserts & Baking",
+  "Drinks",
 ] as const;
 export type CategoryName = (typeof CATEGORIES)[number];
 
@@ -58,6 +59,7 @@ export const CATEGORY_EMOJI: Record<CategoryName, string> = {
   "BBQ & Smokers": "🔥",
   "Sides & Salads": "🥗",
   "Desserts & Baking": "🍰",
+  Drinks: "🍹",
 };
 
 /** Page background photo (free under the Unsplash License; credited in the footer). */
